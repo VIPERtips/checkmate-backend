@@ -1,4 +1,7 @@
 package co.zw.blexta.checkmate.auth.role;
 
-public interface AuthRoleRepository {
+import org.springframework.data.jpa.repository.JpaRepository;
+
+public interface AuthRoleRepository extends JpaRepository<AuthRole,Long> {
+    boolean existsByName(String name);
 }
