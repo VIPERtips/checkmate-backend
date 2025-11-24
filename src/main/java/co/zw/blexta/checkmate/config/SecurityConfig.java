@@ -52,7 +52,7 @@ public class SecurityConfig {
                                 
                                 .requestMatchers("/error").permitAll()
                                 
-                                .anyRequest().authenticated()
+                                .anyRequest().permitAll()
                 )
                 .formLogin(login -> login.disable())
                 .httpBasic(basic -> basic.disable())

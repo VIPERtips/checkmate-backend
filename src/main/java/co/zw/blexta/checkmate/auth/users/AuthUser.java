@@ -31,7 +31,6 @@ public class AuthUser implements UserDetails {
 
     @Column(nullable = false)
     private String password;
-
     private boolean enabled = true;
     private boolean accountNonLocked = true;
     private boolean credentialsNonExpired = true;

@@ -9,8 +9,4 @@ public interface AuthUserService {
     ApiResponse<LoginDto> authenticate(LoginDto loginDto);
 
     ApiResponse<String> registerUser(String email);
-
-    ApiResponse<String> sendPasswordResetLink(String email);
-
-    ApiResponse<String> resetPassword(ResetPasswordDto resetPasswordDto);
 }

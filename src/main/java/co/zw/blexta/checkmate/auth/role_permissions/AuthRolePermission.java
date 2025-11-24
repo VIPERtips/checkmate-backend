@@ -2,6 +2,7 @@ package co.zw.blexta.checkmate.auth.role_permissions;
 
 import co.zw.blexta.checkmate.auth.permissions.AuthPermission;
 import co.zw.blexta.checkmate.auth.role.AuthRole;
+import com.fasterxml.jackson.annotation.JsonBackReference;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -24,5 +25,7 @@ public class AuthRolePermission {
 
     @ManyToOne
     @JoinColumn(name = "permission_id")
+    @JsonBackReference
     private AuthPermission permission;
+
 }

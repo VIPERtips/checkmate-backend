@@ -1,6 +1,7 @@
 package co.zw.blexta.checkmate.auth.permissions;
 
 import co.zw.blexta.checkmate.auth.role_permissions.AuthRolePermission;
+import com.fasterxml.jackson.annotation.JsonManagedReference;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -22,5 +23,7 @@ public class AuthPermission {
     private String action;
 
     @OneToMany(mappedBy = "permission", cascade = CascadeType.ALL, orphanRemoval = true)
+    @JsonManagedReference
     private Set<AuthRolePermission> roles;
+
 }
