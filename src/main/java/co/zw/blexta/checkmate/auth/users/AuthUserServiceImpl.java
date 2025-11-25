@@ -1,13 +1,20 @@
 package co.zw.blexta.checkmate.auth.users;
 
+import co.zw.blexta.checkmate.auth.login_audit.AuthLoginAuditService;
 import co.zw.blexta.checkmate.auth.role.AuthRole;
 import co.zw.blexta.checkmate.auth.role.AuthRoleRepository;
+import co.zw.blexta.checkmate.common.dto.CreateLoginAuditDto;
 import co.zw.blexta.checkmate.common.dto.LoginDto;
 import co.zw.blexta.checkmate.common.exception.BadRequestException;
 import co.zw.blexta.checkmate.common.exception.ResourceNotFoundException;
 import co.zw.blexta.checkmate.common.response.ApiResponse;
+import co.zw.blexta.checkmate.common.utils.IpUtil;
 import co.zw.blexta.checkmate.notification.EmailService;
+import co.zw.blexta.checkmate.security.JwtService;
+import co.zw.blexta.checkmate.staff_users.User;
+import co.zw.blexta.checkmate.staff_users.UserRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -15,6 +22,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.security.SecureRandom;
+import java.time.Duration;
+import java.util.Map;
 import java.util.Set;
 
 @Service
@@ -26,20 +35,96 @@ public class AuthUserServiceImpl implements AuthUserService {
     private final PasswordEncoder passwordEncoder;
     private final AuthenticationManager authManager;
     private final EmailService emailService;
+    private final JwtService jwtService;
+    private final RedisTemplate<String, Object> redis;
+    private final AuthLoginAuditService authLoginAuditService;
+    private final UserRepository staffUserRepo;
 
     @Override
-    public ApiResponse<LoginDto> authenticate(LoginDto loginDto) {
-        authManager.authenticate(
-                new UsernamePasswordAuthenticationToken(
-                        loginDto.email(),
-                        loginDto.password()
-                )
-        );
+    public ApiResponse<?> authenticate(LoginDto loginDto) {
 
-        return ApiResponse.<LoginDto>builder()
-                .message("Login successful")
+        boolean loginSuccess = false;
+        AuthUser user = null;
+        String accessToken = null;
+        String refreshToken = null;
+
+        try {
+            authManager.authenticate(
+                    new UsernamePasswordAuthenticationToken(
+                            loginDto.email(),
+                            loginDto.password()
+                    )
+            );
+
+
+            user = userRepo.findByEmail(loginDto.email())
+                    .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+
+            String fullName = null;
+            if (user.getId() != null) {
+                User staffUser = staffUserRepo.findByAuthUserId(user.getId());
+                if (staffUser != null) {
+                    fullName = staffUser.getFullName();
+                }
+            }
+            accessToken = jwtService.generateAccessToken(user);
+            refreshToken = jwtService.generateRefreshToken(user);
+
+            Map<String, Object> sessionData = Map.of(
+                    "userId", user.getId(),
+                    "email", user.getEmail(),
+                    "name", fullName,
+                    "roles", user.getRoles()
+                            .stream()
+                            .map(role -> role.getName().toLowerCase())
+                            .toList()
+            );
+
+
+            redis.opsForValue().set(
+                    "BLX:SESS:" + accessToken,
+                    sessionData,
+                    Duration.ofHours(1)
+            );
+
+            loginSuccess = true;
+
+            // Return response with session info
+            return ApiResponse.builder()
+                    .success(true)
+                    .message("Login successful")
+                    .data(Map.of(
+                            "accessToken", accessToken,
+                            "refreshToken", refreshToken,
+                            "user", sessionData
+                    ))
+                    .build();
+
+        } finally {
+            // Always log audit, true if loginSuccess, false otherwise
+            String emailToLog = (user != null) ? user.getEmail() : loginDto.email();
+            Long userIdToLog = (user != null) ? user.getId() : null;
+
+            CreateLoginAuditDto auditDto = CreateLoginAuditDto.builder()
+                    .userId(userIdToLog)
+                    .emailAttempted(emailToLog)
+                    .loggedIn(loginSuccess)
+                    .ipAddress(IpUtil.getClientIp())
+                    .userAgent(loginDto.userAgent())
+                    .build();
+
+            authLoginAuditService.saveAudit(auditDto);
+        }
+    }
+
+    @Override
+    public ApiResponse<?> logout(String accessToken) {
+        redis.delete("BLX:SESS:" + accessToken);
+        jwtService.blacklist(accessToken);
+
+        return ApiResponse.builder()
                 .success(true)
-                .data(loginDto)
+                .message("Logged out")
                 .build();
     }
 
@@ -54,11 +139,9 @@ public class AuthUserServiceImpl implements AuthUserService {
         String tempPassword = generateRandomPassword(8);
         String hashedPassword = passwordEncoder.encode(tempPassword);
 
-        // Fetch role
         AuthRole role = roleRepo.findById(roleId)
                 .orElseThrow(() -> new ResourceNotFoundException("Role not found"));
 
-        // Create user and assign role directly
         AuthUser user = AuthUser.builder()
                 .email(email)
                 .password(hashedPassword)
@@ -73,6 +156,11 @@ public class AuthUserServiceImpl implements AuthUserService {
 
         emailService.sendAccountOnboardingEmail(user.getEmail(), fullname, tempPassword);
         return user;
+    }
+
+    @Override
+    public AuthUser findById(Long id) {
+        return userRepo.findById(id).orElse(null);
     }
 
     private String generateRandomPassword(int length) {
