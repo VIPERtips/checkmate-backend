@@ -1,23 +1,26 @@
 package co.zw.blexta.checkmate.auth.role;
 
+
 import co.zw.blexta.checkmate.common.dto.CreateRoleDto;
-import co.zw.blexta.checkmate.common.dto.PermissionDto;
-import co.zw.blexta.checkmate.common.dto.RoleWithPermissionsDto;
+import co.zw.blexta.checkmate.common.dto.RoleDto;
 import co.zw.blexta.checkmate.common.dto.UpdateRoleDto;
 import co.zw.blexta.checkmate.common.exception.ConflictException;
 import co.zw.blexta.checkmate.common.exception.ResourceNotFoundException;
 import co.zw.blexta.checkmate.common.response.ApiResponse;
+import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
+
 @Service
 @RequiredArgsConstructor
 public class AuthRoleServiceImpl implements AuthRoleService {
+
     private final AuthRoleRepository roleRepo;
 
     @Override
-    public ApiResponse<RoleWithPermissionsDto> createRole(CreateRoleDto dto) {
+    public ApiResponse<RoleDto> createRole(CreateRoleDto dto) {
         if (roleRepo.existsByName(dto.name())) {
             throw new ConflictException("Role already exists: " + dto.name());
         }
@@ -28,36 +31,38 @@ public class AuthRoleServiceImpl implements AuthRoleService {
                 .build();
         roleRepo.save(role);
 
-        RoleWithPermissionsDto roleDto = mapToDto(role);
-
-        return ApiResponse.<RoleWithPermissionsDto>builder()
+        return ApiResponse.<RoleDto>builder()
                 .success(true)
                 .message("Role created successfully")
-                .data(roleDto)
+                .data(new RoleDto(role.getId(), role.getName(), role.getDescription()))
                 .build();
     }
 
     @Override
-    public ApiResponse<RoleWithPermissionsDto> updateRole(UpdateRoleDto dto) {
-        AuthRole role = roleRepo.findById(dto.id())
-                .orElseThrow(() -> new ResourceNotFoundException("Role not found with id: " + dto.id()));
+    public ApiResponse<RoleDto> updateRole(UpdateRoleDto dto, Long id) {
+        AuthRole role = roleRepo.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Role not found with id: " + id));
+
         role.setName(dto.name());
         role.setDescription(dto.description());
         roleRepo.save(role);
 
-        return ApiResponse.<RoleWithPermissionsDto>builder()
+        return ApiResponse.<RoleDto>builder()
                 .success(true)
                 .message("Role updated successfully")
-                .data(mapToDto(role))
+                .data(new RoleDto(role.getId(), role.getName(), role.getDescription()))
                 .build();
     }
 
     @Override
-    public ApiResponse<Boolean> deleteRole(Long roleId) {
-        if (!roleRepo.existsById(roleId)) {
-            throw new ResourceNotFoundException("Role not found with id: " + roleId);
+    @Transactional
+    public ApiResponse<Boolean> deleteRole(Long id) {
+        if (!roleRepo.existsById(id)) {
+            throw new ResourceNotFoundException("Role not found with id: " + id);
         }
-        roleRepo.deleteById(roleId);
+
+        roleRepo.deleteById(id);
+
         return ApiResponse.<Boolean>builder()
                 .success(true)
                 .message("Role deleted successfully")
@@ -66,43 +71,27 @@ public class AuthRoleServiceImpl implements AuthRoleService {
     }
 
     @Override
-    public ApiResponse<RoleWithPermissionsDto> getRole(Long roleId) {
-        AuthRole role = roleRepo.findById(roleId)
-                .orElseThrow(() -> new ResourceNotFoundException("Role not found with id: " + roleId));
-        return ApiResponse.<RoleWithPermissionsDto>builder()
+    public ApiResponse<RoleDto> getRole(Long id) {
+        AuthRole role = roleRepo.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Role not found with id: " + id));
+
+        return ApiResponse.<RoleDto>builder()
                 .success(true)
                 .message("Role fetched successfully")
-                .data(mapToDto(role))
+                .data(new RoleDto(role.getId(), role.getName(), role.getDescription()))
                 .build();
     }
 
     @Override
-    public ApiResponse<List<RoleWithPermissionsDto>> getAllRoles() {
-        List<RoleWithPermissionsDto> roles = roleRepo.findAll().stream()
-                .map(this::mapToDto)
+    public ApiResponse<List<RoleDto>> getAllRoles() {
+        List<RoleDto> roles = roleRepo.findAll().stream()
+                .map(r -> new RoleDto(r.getId(), r.getName(), r.getDescription()))
                 .toList();
 
-        return ApiResponse.<List<RoleWithPermissionsDto>>builder()
+        return ApiResponse.<List<RoleDto>>builder()
                 .success(true)
                 .message("Roles fetched successfully")
                 .data(roles)
                 .build();
-    }
-
-    private RoleWithPermissionsDto mapToDto(AuthRole role) {
-        List<PermissionDto> permissions = role.getPermissions().stream()
-                .map(rp -> new PermissionDto(
-                        rp.getPermission().getResource(),
-                        List.of(rp.getPermission().getAction())
-                ))
-                .toList();
-
-        return new RoleWithPermissionsDto(
-                role.getId(),
-                role.getName(),
-                role.getDescription(),
-                permissions,
-                role.getUserRoles() != null ? role.getUserRoles().size() : 0
-        );
     }
 }

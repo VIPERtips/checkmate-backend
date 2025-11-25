@@ -1,12 +1,7 @@
 package co.zw.blexta.checkmate.common.dto;
 
-
-public record RegisterUserDto(
+public record UpdateUserDto(
         String fullName,
         String email,
-        boolean createLogin,
-        Long roleId
+        Long id
 ) {}
-
-
-

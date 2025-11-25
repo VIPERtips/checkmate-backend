@@ -2,20 +2,21 @@ package co.zw.blexta.checkmate.auth.role;
 
 
 import co.zw.blexta.checkmate.common.dto.CreateRoleDto;
-import co.zw.blexta.checkmate.common.dto.RoleWithPermissionsDto;
+import co.zw.blexta.checkmate.common.dto.RoleDto;
 import co.zw.blexta.checkmate.common.dto.UpdateRoleDto;
 import co.zw.blexta.checkmate.common.response.ApiResponse;
 
 import java.util.List;
+
 public interface AuthRoleService {
 
-    ApiResponse<RoleWithPermissionsDto> createRole(CreateRoleDto dto);
+    ApiResponse<RoleDto> createRole(CreateRoleDto dto);
 
-    ApiResponse<RoleWithPermissionsDto> updateRole(UpdateRoleDto dto);
+    ApiResponse<RoleDto> updateRole(UpdateRoleDto dto, Long id);
 
-    ApiResponse<Boolean> deleteRole(Long roleId);
+    ApiResponse<Boolean> deleteRole(Long id);
 
-    ApiResponse<RoleWithPermissionsDto> getRole(Long roleId);
+    ApiResponse<RoleDto> getRole(Long id);
 
-    ApiResponse<List<RoleWithPermissionsDto>> getAllRoles();
+    ApiResponse<List<RoleDto>> getAllRoles();
 }

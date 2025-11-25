@@ -1,7 +1,7 @@
 package co.zw.blexta.checkmate.auth.users;
 
+import co.zw.blexta.checkmate.auth.role.AuthRole;
 import co.zw.blexta.checkmate.auth.login_audit.AuthLoginAudit;
-import co.zw.blexta.checkmate.auth.user_roles.AuthUserRole;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
@@ -11,7 +11,6 @@ import org.springframework.security.core.userdetails.UserDetails;
 
 import java.time.LocalDateTime;
 import java.util.Collection;
-import java.util.List;
 import java.util.Set;
 
 @Data
@@ -31,16 +30,22 @@ public class AuthUser implements UserDetails {
 
     @Column(nullable = false)
     private String password;
+
     private boolean enabled = true;
     private boolean accountNonLocked = true;
     private boolean credentialsNonExpired = true;
     private boolean accountNonExpired = true;
 
     @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
-    private Set<AuthUserRole> roles;
-
-    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
     private Set<AuthLoginAudit> loginAudits;
+
+    @ManyToMany(fetch = FetchType.EAGER)
+    @JoinTable(
+            name = "auth_user_roles",
+            joinColumns = @JoinColumn(name = "user_id"),
+            inverseJoinColumns = @JoinColumn(name = "role_id")
+    )
+    private Set<AuthRole> roles;
 
     @CreationTimestamp
     private LocalDateTime createdAt;
@@ -51,7 +56,7 @@ public class AuthUser implements UserDetails {
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
         return roles.stream()
-                .map(r -> (GrantedAuthority) () -> "ROLE_" + r.getRole().getName().toUpperCase())
+                .map(r -> (GrantedAuthority) () -> "ROLE_" + r.getName().toUpperCase())
                 .toList();
     }
 

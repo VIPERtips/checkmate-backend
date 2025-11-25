@@ -6,6 +6,7 @@ import java.util.Date;
 import java.util.Map;
 import java.util.function.Function;
 
+import co.zw.blexta.checkmate.auth.role.AuthRole;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -36,7 +37,6 @@ public class JwtService {
         this.redis = redis;
     }
 
-
     public String extractSubject(String token) {
         return extractClaim(token, Claims::getSubject);
     }
@@ -58,13 +58,11 @@ public class JwtService {
         return extractClaim(token, Claims::getExpiration).before(new Date());
     }
 
-
-
     public String generateAccessToken(AuthUser user) {
         Map<String, Object> claims = Map.of(
                 "email", user.getEmail(),
                 "roles", user.getRoles().stream()
-                        .map(r -> r.getRole().getName())
+                        .map(AuthRole::getName)
                         .toList()
         );
 
@@ -85,7 +83,6 @@ public class JwtService {
                 .compact();
     }
 
-
     public boolean isTokenValid(String token, UserDetails user) {
         if (isBlacklisted(token)) return false;
 
@@ -105,7 +102,6 @@ public class JwtService {
     public boolean isBlacklisted(String token) {
         return Boolean.TRUE.equals(redis.hasKey("BLX:JWT:" + token));
     }
-
 
     private Key getSignKey() {
         byte[] keyBytes = Decoders.BASE64.decode(SECRET_KEY);

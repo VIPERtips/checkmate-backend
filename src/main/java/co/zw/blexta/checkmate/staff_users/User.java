@@ -23,7 +23,6 @@ public class User {
     private String fullName;
     @Column(unique = true)
     private String email;
-    private boolean createLogin = false;
     @CreationTimestamp
     private LocalDateTime createdAt;
     @OneToOne(cascade = CascadeType.ALL)
