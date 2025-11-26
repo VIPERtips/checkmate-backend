@@ -2,6 +2,7 @@ package co.zw.blexta.checkmate.assset_code;
 
 import co.zw.blexta.checkmate.common.dto.AssetCodeResponse;
 import co.zw.blexta.checkmate.common.response.ApiResponse;
+import co.zw.blexta.checkmate.common.utils.SessionUtil;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.web.bind.annotation.*;
@@ -16,36 +17,13 @@ public class AssetCodeController {
 
     private final AssetCodeService assetCodeService;
     private final RedisTemplate<String, Object> redis;
+    private final SessionUtil sessionUtil;
 
     @PostMapping("/generate")
-    public ApiResponse<AssetCodeResponse> generateAssetCode(@RequestHeader("Authorization") String authHeader) {
-        String token = authHeader.replace("Bearer ", "");
-        Object sessionObj = redis.opsForValue().get("BLX:SESS:" + token);
+    public ApiResponse<AssetCodeResponse> generateAssetCode(
+            @RequestHeader("Authorization") String authHeader) {
 
-        if (!(sessionObj instanceof Map<?, ?> session)) {
-            return ApiResponse.<AssetCodeResponse>builder()
-                    .success(false)
-                    .message("Session expired or invalid")
-                    .build();
-        }
-
-        Object userIdObj = session.get("userId");
-        if (userIdObj == null) {
-            return ApiResponse.<AssetCodeResponse>builder()
-                    .success(false)
-                    .message("User ID not found in session")
-                    .build();
-        }
-
-        Long userId;
-        try {
-            userId = Long.parseLong(userIdObj.toString());
-        } catch (NumberFormatException e) {
-            return ApiResponse.<AssetCodeResponse>builder()
-                    .success(false)
-                    .message("Invalid user ID in session")
-                    .build();
-        }
+        Long userId = sessionUtil.extractUserId(authHeader);
 
         var assetCode = assetCodeService.createAssetCode(userId);
 
@@ -55,6 +33,7 @@ public class AssetCodeController {
                 .data(new AssetCodeResponse(assetCode.getId(), assetCode.getCode()))
                 .build();
     }
+
 
     @GetMapping("/{id}")
     public ApiResponse<AssetCode> getAssetCode(@PathVariable Long id) {

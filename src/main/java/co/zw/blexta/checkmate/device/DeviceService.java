@@ -12,4 +12,6 @@ public interface DeviceService {
     DeviceDto updateDevice(DeviceUpdateDto dto, Long id);
     List<DeviceDto> getAllDevices();
     void deleteDevice(Long id);
+    DeviceDto getDeviceByAssetCode(String code);
+
 }

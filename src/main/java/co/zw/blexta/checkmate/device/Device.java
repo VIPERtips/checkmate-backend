@@ -18,9 +18,10 @@ public class Device {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @OneToOne(cascade = CascadeType.ALL)
+    @OneToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "asset_code_id", referencedColumnName = "id")
     private AssetCode assetCode;
+
     @ManyToOne
     @JoinColumn(name = "category_id",referencedColumnName = "id")
     private Category category;

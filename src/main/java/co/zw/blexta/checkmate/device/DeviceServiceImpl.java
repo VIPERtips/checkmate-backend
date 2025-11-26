@@ -82,4 +82,13 @@ public class DeviceServiceImpl  implements  DeviceService{
         }
         deviceRepository.deleteById(id);
     }
+
+    @Override
+    public DeviceDto getDeviceByAssetCode(String code) {
+        Device device = deviceRepository.findByAssetCode_Code(code)
+                .orElseThrow(() -> new ResourceNotFoundException("Device not found for asset code: " + code));
+
+        return new DeviceDto(device);
+    }
+
 }

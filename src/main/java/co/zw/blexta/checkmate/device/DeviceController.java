@@ -4,10 +4,14 @@ import co.zw.blexta.checkmate.common.dto.DeviceCreateDto;
 import co.zw.blexta.checkmate.common.dto.DeviceDto;
 import co.zw.blexta.checkmate.common.dto.DeviceUpdateDto;
 import co.zw.blexta.checkmate.common.response.ApiResponse;
+import co.zw.blexta.checkmate.common.utils.SessionUtil;
+import co.zw.blexta.checkmate.device.assignments.DeviceAssignment;
+import co.zw.blexta.checkmate.device.assignments.DeviceAssignmentService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/devices")
@@ -15,6 +19,8 @@ import java.util.List;
 public class DeviceController {
 
     private final DeviceService deviceService;
+    private final DeviceAssignmentService deviceAssignmentService;
+    private final SessionUtil sessionUtil;
 
     @PostMapping
     public ApiResponse<DeviceDto> createDevice(@RequestBody DeviceCreateDto dto) {
@@ -64,4 +70,57 @@ public class DeviceController {
                 .message("Device deleted successfully")
                 .build();
     }
+
+    @PostMapping("/{id}/checkout")
+    public ApiResponse<DeviceAssignment> checkoutDevice(
+            @RequestHeader("Authorization") String authHeader,
+            @PathVariable Long id,
+            @RequestBody Map<String, Long> body) {
+
+        Long performedBy = sessionUtil.extractUserId(authHeader);
+        Long assignedTo = body.get("assignedTo");
+
+        DeviceAssignment assignment = deviceAssignmentService.assignDevice(
+                id,
+                assignedTo,
+                performedBy
+        );
+
+        return ApiResponse.<DeviceAssignment>builder()
+                .success(true)
+                .message("Device checked out successfully")
+                .data(assignment)
+                .build();
+    }
+
+    @PostMapping("/{id}/checkin")
+    public ApiResponse<DeviceAssignment> checkInDevice(
+            @RequestHeader("Authorization") String authHeader,
+            @PathVariable Long id) {
+
+        Long performedBy = sessionUtil.extractUserId(authHeader);
+
+        DeviceAssignment assignment = deviceAssignmentService.checkInDevice(
+                id,
+                performedBy
+        );
+
+        return ApiResponse.<DeviceAssignment>builder()
+                .success(true)
+                .message("Device checked in successfully")
+                .data(assignment)
+                .build();
+    }
+
+    @GetMapping("/assetCode/{code}")
+    public ApiResponse<DeviceDto> getDeviceByAssetCode(@PathVariable String code) {
+        DeviceDto device = deviceService.getDeviceByAssetCode(code);
+
+        return ApiResponse.<DeviceDto>builder()
+                .success(true)
+                .message("Device retrieved successfully")
+                .data(device)
+                .build();
+    }
+
 }
