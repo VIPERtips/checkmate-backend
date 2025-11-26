@@ -11,5 +11,6 @@ public interface AuthUserService {
 
     AuthUser registerUser(String email, Long roleId, String fullname);
 
-    AuthUser findById(Long id);
+    ApiResponse<?> getCurrentSession(String accessToken);
+
 }

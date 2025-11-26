@@ -129,6 +129,31 @@ public class AuthUserServiceImpl implements AuthUserService {
     }
 
     @Override
+    public ApiResponse<?> getCurrentSession(String accessToken) {
+
+        String key = "BLX:SESS:" + accessToken;
+        Map<String, Object> session = (Map<String, Object>) redis.opsForValue().get(key);
+
+        if (session == null) {
+            return ApiResponse.builder()
+                    .success(false)
+                    .message("Session expired or invalid")
+                    .data(null)
+                    .build();
+        }
+
+        return ApiResponse.builder()
+                .success(true)
+                .message("Session active")
+                .data(Map.of(
+                        "accessToken", accessToken,
+                        "user", session
+                ))
+                .build();
+    }
+
+
+    @Override
     @Transactional
     public AuthUser registerUser(String email, Long roleId, String fullname) {
 
@@ -156,11 +181,6 @@ public class AuthUserServiceImpl implements AuthUserService {
 
         emailService.sendAccountOnboardingEmail(user.getEmail(), fullname, tempPassword);
         return user;
-    }
-
-    @Override
-    public AuthUser findById(Long id) {
-        return userRepo.findById(id).orElse(null);
     }
 
     private String generateRandomPassword(int length) {

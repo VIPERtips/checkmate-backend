@@ -1,0 +1,32 @@
+package co.zw.blexta.checkmate.device;
+
+import co.zw.blexta.checkmate.assset_code.AssetCode;
+import co.zw.blexta.checkmate.deviceCategories.Category;
+import jakarta.persistence.*;
+import lombok.*;
+import org.hibernate.annotations.CreationTimestamp;
+
+import java.time.LocalDateTime;
+
+@Data
+@AllArgsConstructor
+@NoArgsConstructor
+@Builder
+@Entity
+public class Device {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    @OneToOne(cascade = CascadeType.ALL)
+    @JoinColumn(name = "asset_code_id", referencedColumnName = "id")
+    private AssetCode assetCode;
+    @ManyToOne
+    @JoinColumn(name = "category_id",referencedColumnName = "id")
+    private Category category;
+    private String name;
+    private String serialNumber;
+    private String status;
+    @CreationTimestamp
+    private LocalDateTime createdAt;
+}
