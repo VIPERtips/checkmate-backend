@@ -1,5 +1,6 @@
 package co.zw.blexta.checkmate.device;
 
+import co.zw.blexta.checkmate.common.dto.DeviceAssignmentDto;
 import co.zw.blexta.checkmate.common.dto.DeviceCreateDto;
 import co.zw.blexta.checkmate.common.dto.DeviceDto;
 import co.zw.blexta.checkmate.common.dto.DeviceUpdateDto;
@@ -72,7 +73,7 @@ public class DeviceController {
     }
 
     @PostMapping("/{id}/checkout")
-    public ApiResponse<DeviceAssignment> checkoutDevice(
+    public ApiResponse<DeviceAssignmentDto> checkoutDevice(
             @RequestHeader("Authorization") String authHeader,
             @PathVariable Long id,
             @RequestBody Map<String, Long> body) {
@@ -80,13 +81,13 @@ public class DeviceController {
         Long performedBy = sessionUtil.extractUserId(authHeader);
         Long assignedTo = body.get("assignedTo");
 
-        DeviceAssignment assignment = deviceAssignmentService.assignDevice(
+        DeviceAssignmentDto assignment = deviceAssignmentService.assignDevice(
                 id,
                 assignedTo,
                 performedBy
         );
 
-        return ApiResponse.<DeviceAssignment>builder()
+        return ApiResponse.<DeviceAssignmentDto>builder()
                 .success(true)
                 .message("Device checked out successfully")
                 .data(assignment)
@@ -94,18 +95,18 @@ public class DeviceController {
     }
 
     @PostMapping("/{id}/checkin")
-    public ApiResponse<DeviceAssignment> checkInDevice(
+    public ApiResponse<DeviceAssignmentDto> checkInDevice(
             @RequestHeader("Authorization") String authHeader,
             @PathVariable Long id) {
 
         Long performedBy = sessionUtil.extractUserId(authHeader);
 
-        DeviceAssignment assignment = deviceAssignmentService.checkInDevice(
+        DeviceAssignmentDto assignment = deviceAssignmentService.checkInDevice(
                 id,
                 performedBy
         );
 
-        return ApiResponse.<DeviceAssignment>builder()
+        return ApiResponse.<DeviceAssignmentDto>builder()
                 .success(true)
                 .message("Device checked in successfully")
                 .data(assignment)
@@ -120,6 +121,15 @@ public class DeviceController {
                 .success(true)
                 .message("Device retrieved successfully")
                 .data(device)
+                .build();
+    }
+    @GetMapping("/recent")
+    public ApiResponse<List<DeviceAssignmentDto>> getRecentAssignments() {
+        List<DeviceAssignmentDto> recent = deviceAssignmentService.getRecentAssignments(5);
+        return ApiResponse.<List<DeviceAssignmentDto>>builder()
+                .success(true)
+                .message("Recent assignments retrieved successfully")
+                .data(recent)
                 .build();
     }
 

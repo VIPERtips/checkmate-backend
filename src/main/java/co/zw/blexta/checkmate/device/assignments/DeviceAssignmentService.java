@@ -1,8 +1,13 @@
 package co.zw.blexta.checkmate.device.assignments;
 
+import co.zw.blexta.checkmate.common.dto.DeviceAssignmentDto;
+
+import java.util.List;
+
 public interface DeviceAssignmentService {
 
-    DeviceAssignment assignDevice(Long deviceId, Long assignedToUserId, Long assignedByUserId);
+    DeviceAssignmentDto assignDevice(Long deviceId, Long assignedToUserId, Long assignedByUserId);
 
-    DeviceAssignment checkInDevice(Long deviceId, Long performedByUserId);
+    DeviceAssignmentDto checkInDevice(Long deviceId, Long performedByUserId);
+    List<DeviceAssignmentDto> getRecentAssignments(int limit);
 }
