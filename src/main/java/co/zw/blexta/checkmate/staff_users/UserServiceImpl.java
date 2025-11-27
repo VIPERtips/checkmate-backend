@@ -76,18 +76,21 @@ public class UserServiceImpl implements UserService {
     public ApiResponse<UpdateUserDto> updateUser(UpdateUserDto dto, Long id) {
         if (dto == null) throw new BadRequestException("Update payload is required");
 
-        User user = userRepo.findById(id)
+        User existingUser = userRepo.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found with id " + id));
 
-        if (dto.fullName() != null) user.setFullName(dto.fullName());
-        if (dto.email() != null) {
+        // Only update fields that are provided
+        if (dto.fullName() != null) existingUser.setFullName(dto.fullName());
+
+        if (dto.email() != null && !dto.email().equalsIgnoreCase(existingUser.getEmail())) {
+            // Only throw conflict if some other user has this email
             if (userRepo.existsByEmail(dto.email())) {
                 throw new ConflictException("Another user with that email already exists");
             }
-            user.setEmail(dto.email());
+            existingUser.setEmail(dto.email());
         }
 
-        userRepo.save(user);
+        userRepo.save(existingUser);
 
         return ApiResponse.<UpdateUserDto>builder()
                 .message("User updated successfully")
@@ -95,6 +98,7 @@ public class UserServiceImpl implements UserService {
                 .data(dto)
                 .build();
     }
+
 
     @Override
     @Transactional

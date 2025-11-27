@@ -13,4 +13,6 @@ public interface AuthUserService {
 
     ApiResponse<?> getCurrentSession(String accessToken);
 
+    AuthUser getUserById(Long id);
+
 }

@@ -12,12 +12,21 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
-
 @Service
 @RequiredArgsConstructor
 public class AuthRoleServiceImpl implements AuthRoleService {
 
     private final AuthRoleRepository roleRepo;
+
+    private RoleDto toDto(AuthRole role) {
+        Long userCount = roleRepo.countUsers(role.getId());
+        return new RoleDto(
+                role.getId(),
+                role.getName(),
+                role.getDescription(),
+                userCount
+        );
+    }
 
     @Override
     public ApiResponse<RoleDto> createRole(CreateRoleDto dto) {
@@ -34,7 +43,7 @@ public class AuthRoleServiceImpl implements AuthRoleService {
         return ApiResponse.<RoleDto>builder()
                 .success(true)
                 .message("Role created successfully")
-                .data(new RoleDto(role.getId(), role.getName(), role.getDescription()))
+                .data(toDto(role))
                 .build();
     }
 
@@ -50,7 +59,7 @@ public class AuthRoleServiceImpl implements AuthRoleService {
         return ApiResponse.<RoleDto>builder()
                 .success(true)
                 .message("Role updated successfully")
-                .data(new RoleDto(role.getId(), role.getName(), role.getDescription()))
+                .data(toDto(role))
                 .build();
     }
 
@@ -78,14 +87,14 @@ public class AuthRoleServiceImpl implements AuthRoleService {
         return ApiResponse.<RoleDto>builder()
                 .success(true)
                 .message("Role fetched successfully")
-                .data(new RoleDto(role.getId(), role.getName(), role.getDescription()))
+                .data(toDto(role))
                 .build();
     }
 
     @Override
     public ApiResponse<List<RoleDto>> getAllRoles() {
         List<RoleDto> roles = roleRepo.findAll().stream()
-                .map(r -> new RoleDto(r.getId(), r.getName(), r.getDescription()))
+                .map(this::toDto)
                 .toList();
 
         return ApiResponse.<List<RoleDto>>builder()

@@ -7,6 +7,8 @@ import co.zw.blexta.checkmate.common.dto.DeviceDto;
 import co.zw.blexta.checkmate.common.dto.DeviceUpdateDto;
 import co.zw.blexta.checkmate.common.exception.BadRequestException;
 import co.zw.blexta.checkmate.common.exception.ResourceNotFoundException;
+import co.zw.blexta.checkmate.device.assignments.DeviceAssignment;
+import co.zw.blexta.checkmate.device.assignments.DeviceAssignmentRepository;
 import co.zw.blexta.checkmate.deviceCategories.Category;
 import co.zw.blexta.checkmate.deviceCategories.CategoryRepository;
 import lombok.RequiredArgsConstructor;
@@ -21,6 +23,7 @@ public class DeviceServiceImpl  implements  DeviceService{
     private final DeviceRepository deviceRepository;
     private final AssetCodeRepository assetCodeRepository;
     private final CategoryRepository categoryRepository;
+    private final DeviceAssignmentRepository assignmentRepository;
 
 
     @Override
@@ -72,8 +75,16 @@ public class DeviceServiceImpl  implements  DeviceService{
     @Override
     public List<DeviceDto> getAllDevices() {
         List<Device> devices = deviceRepository.findAll();
-        return devices.stream().map(DeviceDto::new).collect(Collectors.toList());
+        return devices.stream()
+                .map(device -> {
+                    DeviceAssignment latestAssignment = assignmentRepository
+                            .findLatestByDeviceId(device.getId())
+                            .orElse(null);
+                    return new DeviceDto(device, latestAssignment);
+                })
+                .toList();
     }
+
 
     @Override
     public void deleteDevice(Long id) {

@@ -152,6 +152,12 @@ public class AuthUserServiceImpl implements AuthUserService {
                 .build();
     }
 
+    @Override
+    public AuthUser getUserById(Long id) {
+        return  userRepo.findById(id)
+                .orElseThrow(()-> new ResourceNotFoundException("User not found for :"+id));
+    }
+
 
     @Override
     @Transactional

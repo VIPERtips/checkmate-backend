@@ -79,11 +79,12 @@ public class CategoryServiceImpl implements CategoryService {
     }
 
     private CategoryDto toDto(Category category) {
-
+        Long deviceCount = categoryRepo.countDevices(category.getId());
         return new CategoryDto(
                 category.getId(),
                 category.getName(),
-                category.getCode()
+                category.getCode(),
+                deviceCount
         );
     }
 }
