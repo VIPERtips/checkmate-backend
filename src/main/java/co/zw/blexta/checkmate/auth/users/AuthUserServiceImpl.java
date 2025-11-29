@@ -14,7 +14,6 @@ import co.zw.blexta.checkmate.security.JwtService;
 import co.zw.blexta.checkmate.staff_users.User;
 import co.zw.blexta.checkmate.staff_users.UserRepository;
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -22,7 +21,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.security.SecureRandom;
-import java.time.Duration;
+import java.util.Date;
 import java.util.Map;
 import java.util.Set;
 
@@ -36,7 +35,6 @@ public class AuthUserServiceImpl implements AuthUserService {
     private final AuthenticationManager authManager;
     private final EmailService emailService;
     private final JwtService jwtService;
-    private final RedisTemplate<String, Object> redis;
     private final AuthLoginAuditService authLoginAuditService;
     private final UserRepository staffUserRepo;
 
@@ -56,40 +54,30 @@ public class AuthUserServiceImpl implements AuthUserService {
                     )
             );
 
-
             user = userRepo.findByEmail(loginDto.email())
                     .orElseThrow(() -> new ResourceNotFoundException("User not found"));
 
+            User staffUser = null;
             String fullName = null;
             if (user.getId() != null) {
-                User staffUser = staffUserRepo.findByAuthUserId(user.getId());
-                if (staffUser != null) {
-                    fullName = staffUser.getFullName();
-                }
+                staffUser = staffUserRepo.findByAuthUserId(user.getId());
+                if (staffUser != null) fullName = staffUser.getFullName();
             }
-            accessToken = jwtService.generateAccessToken(user);
-            refreshToken = jwtService.generateRefreshToken(user);
 
             Map<String, Object> sessionData = Map.of(
                     "userId", user.getId(),
                     "email", user.getEmail(),
                     "name", fullName,
-                    "roles", user.getRoles()
-                            .stream()
-                            .map(role -> role.getName().toLowerCase())
+                    "roles", user.getRoles().stream()
+                            .map(r -> r.getName().toLowerCase())
                             .toList()
             );
 
-
-            redis.opsForValue().set(
-                    "BLX:SESS:" + accessToken,
-                    sessionData,
-                    Duration.ofHours(1)
-            );
+            accessToken = jwtService.generateAccessToken(user, sessionData);
+            refreshToken = jwtService.generateRefreshToken(user);
 
             loginSuccess = true;
 
-            // Return response with session info
             return ApiResponse.builder()
                     .success(true)
                     .message("Login successful")
@@ -101,7 +89,6 @@ public class AuthUserServiceImpl implements AuthUserService {
                     .build();
 
         } finally {
-            // Always log audit, true if loginSuccess, false otherwise
             String emailToLog = (user != null) ? user.getEmail() : loginDto.email();
             Long userIdToLog = (user != null) ? user.getId() : null;
 
@@ -119,22 +106,27 @@ public class AuthUserServiceImpl implements AuthUserService {
 
     @Override
     public ApiResponse<?> logout(String accessToken) {
-        redis.delete("BLX:SESS:" + accessToken);
-        jwtService.blacklist(accessToken);
+        AuthUser user = userRepo.findById(Long.parseLong(jwtService.extractSubject(accessToken)))
+                .orElse(null);
+
+        if (user != null) {
+            user.setLastLogoutAt(new Date());
+            userRepo.save(user);
+        }
 
         return ApiResponse.builder()
                 .success(true)
-                .message("Logged out")
+                .message("Logged out, token invalidated")
                 .build();
     }
 
     @Override
     public ApiResponse<?> getCurrentSession(String accessToken) {
 
-        String key = "BLX:SESS:" + accessToken;
-        Map<String, Object> session = (Map<String, Object>) redis.opsForValue().get(key);
+        AuthUser user = userRepo.findById(Long.parseLong(jwtService.extractSubject(accessToken)))
+                .orElse(null);
 
-        if (session == null) {
+        if (user == null || !jwtService.isTokenValid(accessToken, null, user.getLastLogoutAt())) {
             return ApiResponse.builder()
                     .success(false)
                     .message("Session expired or invalid")
@@ -142,22 +134,29 @@ public class AuthUserServiceImpl implements AuthUserService {
                     .build();
         }
 
+        var claims = jwtService.extractAllClaims(accessToken);
+        Map<String, Object> sessionData = Map.of(
+                "userId", claims.get("userId"),
+                "email", claims.get("email"),
+                "name", claims.get("name"),
+                "roles", claims.get("roles")
+        );
+
         return ApiResponse.builder()
                 .success(true)
                 .message("Session active")
                 .data(Map.of(
                         "accessToken", accessToken,
-                        "user", session
+                        "user", sessionData
                 ))
                 .build();
     }
 
     @Override
     public AuthUser getUserById(Long id) {
-        return  userRepo.findById(id)
-                .orElseThrow(()-> new ResourceNotFoundException("User not found for :"+id));
+        return userRepo.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found for :" + id));
     }
-
 
     @Override
     @Transactional
@@ -184,7 +183,6 @@ public class AuthUserServiceImpl implements AuthUserService {
                 .build();
 
         userRepo.save(user);
-
         emailService.sendAccountOnboardingEmail(user.getEmail(), fullname, tempPassword);
         return user;
     }

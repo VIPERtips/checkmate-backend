@@ -24,6 +24,7 @@ public class AssetCodeController {
             @RequestHeader("Authorization") String authHeader) {
 
         Long userId = sessionUtil.extractUserId(authHeader);
+        System.out.println(userId);
 
         var assetCode = assetCodeService.createAssetCode(userId);
 

@@ -19,6 +19,7 @@ import org.springframework.web.filter.OncePerRequestFilter;
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private static final Logger logger = LoggerFactory.getLogger(JwtAuthenticationFilter.class);
+
     private final JwtService jwtService;
     private final AuthUserRepository userRepo;
 
@@ -28,7 +29,9 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     }
 
     @Override
-    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
+    protected void doFilterInternal(HttpServletRequest request,
+                                    HttpServletResponse response,
+                                    FilterChain filterChain)
             throws ServletException, IOException {
 
         String authHeader = request.getHeader("Authorization");
@@ -40,19 +43,16 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         String token = authHeader.substring(7);
 
         try {
-            if (jwtService.isBlacklisted(token)) {
-                sendUnauthorized(response, "Token revoked, please login again");
-                return;
-            }
-
             String userId = jwtService.extractSubject(token);
             AuthUser user = userRepo.findById(Long.parseLong(userId)).orElseThrow();
 
-            if (!jwtService.isTokenValid(token, user)) {
+            // Validate token using lastLogoutAt trick
+            if (!jwtService.isTokenValid(token, user, user.getLastLogoutAt())) {
                 sendUnauthorized(response, "Invalid or expired token");
                 return;
             }
 
+            // Set authenticated user in Spring Security context
             UsernamePasswordAuthenticationToken authToken =
                     new UsernamePasswordAuthenticationToken(user, null, user.getAuthorities());
             SecurityContextHolder.getContext().setAuthentication(authToken);

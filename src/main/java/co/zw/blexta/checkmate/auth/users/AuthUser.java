@@ -11,6 +11,7 @@ import org.springframework.security.core.userdetails.UserDetails;
 
 import java.time.LocalDateTime;
 import java.util.Collection;
+import java.util.Date;
 import java.util.Set;
 
 @Data
@@ -52,6 +53,9 @@ public class AuthUser implements UserDetails {
 
     @UpdateTimestamp
     private LocalDateTime updatedAt;
+    
+    @Temporal(TemporalType.TIMESTAMP)
+    private Date lastLogoutAt;
 
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
