@@ -89,7 +89,7 @@ public class EmailService {
                     .getResourceAsStream("templates/checkmate-email-template.html");
 
             if (stream == null) {
-                throw new EmailDeliveryException("Email template not found");
+                throw new EmailDeliveryException("Email template not found",null);
             }
 
             cachedTemplate = new String(stream.readAllBytes(), StandardCharsets.UTF_8);
