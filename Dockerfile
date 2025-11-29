@@ -1,8 +1,8 @@
-# First stage: Build with JDK 25
+# First stage: Build
 FROM eclipse-temurin:25-jdk AS build
 WORKDIR /app
 
-# Copy pom.xml first for caching dependencies
+# Copy pom.xml first to download dependencies offline
 COPY pom.xml .
 RUN mvn dependency:go-offline
 
@@ -12,15 +12,15 @@ COPY src ./src
 # Build the project without tests
 RUN mvn clean package -DskipTests
 
-# Second stage: Minimal runtime
+# Second stage: Run
 FROM eclipse-temurin:25-jre-alpine AS runtime
 WORKDIR /app
 
-# Copy only the built JAR from the build stage
+# Copy the built JAR from the build stage
 COPY --from=build /app/target/*.jar app.jar
 
-# Expose port
+# Expose the port your Spring Boot app listens on
 EXPOSE 8080
 
-# Run JAR
+# Run the JAR
 ENTRYPOINT ["java", "-jar", "app.jar"]
