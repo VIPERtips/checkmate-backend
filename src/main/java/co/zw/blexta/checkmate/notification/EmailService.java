@@ -82,13 +82,24 @@ public class EmailService {
         }
     }
 
-    private String getTemplate() throws IOException {
-        if (cachedTemplate == null) {
-            Path path = new ClassPathResource("templates/checkmate-email-template.html").getFile().toPath();
-            cachedTemplate = Files.readString(path, StandardCharsets.UTF_8);
+    private String getTemplate() {
+    if (cachedTemplate == null) {
+        try {
+            var stream = getClass().getClassLoader()
+                    .getResourceAsStream("templates/checkmate-email-template.html");
+
+            if (stream == null) {
+                throw new EmailDeliveryException("Email template not found");
+            }
+
+            cachedTemplate = new String(stream.readAllBytes(), StandardCharsets.UTF_8);
+        } catch (IOException e) {
+            throw new EmailDeliveryException("Failed to load email template", e);
         }
-        return cachedTemplate;
     }
+    return cachedTemplate;
+}
+
 
     private String fillTemplate(String template, EmailBuilder builder) {
         return template
