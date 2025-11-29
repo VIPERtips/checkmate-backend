@@ -55,7 +55,7 @@ public class EmailService {
                         "We wanted to let you know that your password has been successfully changed. " +
                                 "If you did not make this change, please contact Checkmate Support immediately."
                 )
-                .cta("Go to Dashboard", BASE_URL + "/login")
+                .cta("Go to Dashboard", BASE_URL )
                 .footerMessage("Checkmate • Blame With Proof");
         dispatchEmail(builder);
     }
@@ -102,7 +102,7 @@ public class EmailService {
                 .replace("{{FOOTER_MESSAGE}}", builder.footerMessage)
                 .replace("{{PRIMARY_COLOR}}", "#4FC3F7") // Blexta light blue
                 .replace("{{SECONDARY_COLOR}}", "#F1F3F6") // Blexta soft grey
-                .replace("{{ICON_URL}}", "https://blexta.co.zw/checkmate-icon.png"); // replace with your official icon
+                .replace("{{ICON_URL}}", "https://checkmate.blexta.co.zw/favicon.ico"); // replace with your official icon
     }
 
     private static class EmailBuilder {
