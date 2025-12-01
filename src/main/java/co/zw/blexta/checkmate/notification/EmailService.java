@@ -19,7 +19,7 @@ import jakarta.mail.internet.MimeMessage;
 @Service
 public class EmailService {
 
-    private static final String FROM_EMAIL = "info@checkmate.blexta.co.zw";
+    private static final String FROM_EMAIL = "mytipstadiwa@gmail.com";
     private static final String FROM_NAME = "Checkmate Support";
     private static final String PLATFORM_NAME = "Checkmate";
     private static final String BASE_URL = "https://checkmate.blexta.co.zw";
