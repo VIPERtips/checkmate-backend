@@ -4,7 +4,6 @@ import co.zw.blexta.checkmate.common.dto.AssetCodeResponse;
 import co.zw.blexta.checkmate.common.response.ApiResponse;
 import co.zw.blexta.checkmate.common.utils.SessionUtil;
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -16,7 +15,6 @@ import java.util.Map;
 public class AssetCodeController {
 
     private final AssetCodeService assetCodeService;
-    private final RedisTemplate<String, Object> redis;
     private final SessionUtil sessionUtil;
 
     @PostMapping("/generate")

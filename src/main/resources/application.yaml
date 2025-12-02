@@ -19,18 +19,6 @@ spring:
       hibernate:
         dialect: org.hibernate.dialect.MySQL8Dialect
 
-  redis:
-    host: localhost
-    port: 6379
-    timeout: 2000ms
-    lettuce:
-      pool:
-        max-active: 8
-        max-idle: 8
-        min-idle: 0
-        max-wait: 2000ms
-
-
   servlet:
     multipart:
       max-file-size: 50MB
@@ -51,9 +39,9 @@ spring:
           starttls:
             enable: true
             required: true
-          connectiontimeout: 15000
-          timeout: 15000
-          writetimeout: 15000
+          connectiontimeout: 5000
+          timeout: 5000
+          writetimeout: 5000
 
 
 
