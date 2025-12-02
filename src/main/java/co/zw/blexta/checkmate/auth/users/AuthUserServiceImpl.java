@@ -184,6 +184,7 @@ public class AuthUserServiceImpl implements AuthUserService {
 
         userRepo.save(user);
         emailService.sendAccountOnboardingEmail(user.getEmail(), fullname, tempPassword);
+        System.out.println("The generated password is: "+tempPassword);
         return user;
     }
 
