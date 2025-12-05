@@ -81,8 +81,7 @@ public class AuthUserServiceImpl implements AuthUserService {
                     "name", fullName,
                     "roles", user.getRoles().stream()
                             .map(r -> r.getName().toLowerCase())
-                            .toList(),
-                            "isFirstLogin", isFirstLogin
+                            .toList()
             );
 
             accessToken = jwtService.generateAccessToken(user, sessionData);
@@ -97,6 +96,7 @@ public class AuthUserServiceImpl implements AuthUserService {
                             "accessToken", accessToken,
                             "refreshToken", refreshToken,
                             "user", sessionData
+                            ,"isFirstLogin", isFirstLogin
                     ))
                     .build();
 
