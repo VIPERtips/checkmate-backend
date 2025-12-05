@@ -15,7 +15,6 @@ import co.zw.blexta.checkmate.security.JwtService;
 import co.zw.blexta.checkmate.staff_users.User;
 import co.zw.blexta.checkmate.staff_users.UserRepository;
 import lombok.RequiredArgsConstructor;
-import lombok.experimental.var;
 
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
