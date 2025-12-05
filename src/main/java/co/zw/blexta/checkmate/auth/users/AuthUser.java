@@ -56,6 +56,8 @@ public class AuthUser implements UserDetails {
     
     @Temporal(TemporalType.TIMESTAMP)
     private Date lastLogoutAt;
+    
+    private Date lastLoginAt;
 
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {

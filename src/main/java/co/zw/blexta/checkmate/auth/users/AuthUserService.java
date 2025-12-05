@@ -1,5 +1,6 @@
 package co.zw.blexta.checkmate.auth.users;
 
+import co.zw.blexta.checkmate.common.dto.ChangePasswordDto;
 import co.zw.blexta.checkmate.common.dto.LoginDto;
 import co.zw.blexta.checkmate.common.response.ApiResponse;
 
@@ -14,5 +15,7 @@ public interface AuthUserService {
     ApiResponse<?> getCurrentSession(String accessToken);
 
     AuthUser getUserById(Long id);
+    
+    ApiResponse<?> changePassword(Long userId,ChangePasswordDto dto);
 
 }

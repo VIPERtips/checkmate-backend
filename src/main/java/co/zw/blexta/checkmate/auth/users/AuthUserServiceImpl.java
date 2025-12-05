@@ -3,6 +3,7 @@ package co.zw.blexta.checkmate.auth.users;
 import co.zw.blexta.checkmate.auth.login_audit.AuthLoginAuditService;
 import co.zw.blexta.checkmate.auth.role.AuthRole;
 import co.zw.blexta.checkmate.auth.role.AuthRoleRepository;
+import co.zw.blexta.checkmate.common.dto.ChangePasswordDto;
 import co.zw.blexta.checkmate.common.dto.CreateLoginAuditDto;
 import co.zw.blexta.checkmate.common.dto.LoginDto;
 import co.zw.blexta.checkmate.common.exception.BadRequestException;
@@ -14,6 +15,8 @@ import co.zw.blexta.checkmate.security.JwtService;
 import co.zw.blexta.checkmate.staff_users.User;
 import co.zw.blexta.checkmate.staff_users.UserRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.experimental.var;
+
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -37,6 +40,7 @@ public class AuthUserServiceImpl implements AuthUserService {
     private final JwtService jwtService;
     private final AuthLoginAuditService authLoginAuditService;
     private final UserRepository staffUserRepo;
+    private final UserRepository staffRepo;
 
     @Override
     public ApiResponse<?> authenticate(LoginDto loginDto) {
@@ -63,6 +67,13 @@ public class AuthUserServiceImpl implements AuthUserService {
                 staffUser = staffUserRepo.findByAuthUserId(user.getId());
                 if (staffUser != null) fullName = staffUser.getFullName();
             }
+            
+            
+            boolean isFirstLogin = (user.getLastLoginAt() == null);
+            if(isFirstLogin) {
+            	user.setLastLoginAt(new Date());
+            	userRepo.save(user);
+            }
 
             Map<String, Object> sessionData = Map.of(
                     "userId", user.getId(),
@@ -70,7 +81,8 @@ public class AuthUserServiceImpl implements AuthUserService {
                     "name", fullName,
                     "roles", user.getRoles().stream()
                             .map(r -> r.getName().toLowerCase())
-                            .toList()
+                            .toList(),
+                            "isFirstLogin", isFirstLogin
             );
 
             accessToken = jwtService.generateAccessToken(user, sessionData);
@@ -197,4 +209,34 @@ public class AuthUserServiceImpl implements AuthUserService {
         }
         return sb.toString();
     }
+
+	@Override
+	public ApiResponse<?> changePassword(Long userId, ChangePasswordDto dto) {
+		AuthUser user = userRepo.findById(userId)
+				.orElseThrow(()-> new ResourceNotFoundException("User not found"));
+		
+		User staffUser = staffRepo.findByAuthUserId(userId);
+		
+		
+		if(!passwordEncoder.matches(dto.oldPassword(), user.getPassword())) {
+			throw new BadRequestException("Old password is incorrect");
+		}
+		
+		if(!dto.newPassword().equals(dto.confirmPassword())) {
+			throw new BadRequestException("New passwords do not match");
+		}
+		
+		String hashedNew = passwordEncoder.encode(dto.newPassword());
+		user.setPassword(hashedNew);
+		
+		userRepo.save(user);
+		
+		emailService.sendPasswordChangedNotification(user.getEmail(), staffUser.getFullName());
+		
+		  return ApiResponse.builder()
+	                .success(true)
+	                .message("Password updated successfully")
+	                .data(null)
+	                .build();
+	}
 }

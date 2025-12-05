@@ -3,16 +3,15 @@ package co.zw.blexta.checkmate.notification;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 
-
 import co.zw.blexta.checkmate.common.exception.EmailDeliveryException;
+import jakarta.mail.internet.InternetAddress;
+import jakarta.mail.internet.MimeMessage;
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
-
-import jakarta.mail.internet.InternetAddress;
-import jakarta.mail.internet.MimeMessage;
 
 @Service
 public class EmailService {
@@ -33,13 +32,11 @@ public class EmailService {
                 .to(recipientEmail)
                 .subject("Welcome to " + PLATFORM_NAME)
                 .greeting("Hi " + name + ",")
-                .message(
-                        "Your account has been successfully created on " + PLATFORM_NAME + ". " +
-                                "Use the credentials below to log in. For security, change your password after your first login."
-                )
+                .message("Your account has been created. Below are your credentials.")
                 .credentials("Username: " + recipientEmail, "Temporary Password: " + tempPassword)
-                .cta("Go to Dashboard", BASE_URL + "/login")
+                .cta("Go To Dashboard", BASE_URL + "/login")
                 .footerMessage("Checkmate • Blame With Proof");
+
         dispatchEmail(builder);
     }
 
@@ -49,15 +46,25 @@ public class EmailService {
                 .to(recipientEmail)
                 .subject("Your Checkmate Password Has Been Updated")
                 .greeting("Hi " + name + ",")
-                .message(
-                        "We wanted to let you know that your password has been successfully changed. " +
-                                "If you did not make this change, please contact Checkmate Support immediately."
-                )
-                .cta("Go to Dashboard", BASE_URL )
+                .message("Your password was changed. If it wasn't you, contact support.")
+                .cta("Go To Dashboard", BASE_URL)
                 .footerMessage("Checkmate • Blame With Proof");
+
         dispatchEmail(builder);
     }
 
+    @Async("notificationExecutor")
+    public void sendReminder(String recipientEmail, String name, String item, String due) {
+        EmailBuilder builder = new EmailBuilder()
+                .to(recipientEmail)
+                .subject("Reminder: Return " + item)
+                .greeting("Hi " + name + ",")
+                .message("Please return " + item + " by " + due + ".")
+                .cta("View Dashboard", BASE_URL)
+                .footerMessage("Checkmate • Blame With Proof");
+
+        dispatchEmail(builder);
+    }
 
     private void dispatchEmail(EmailBuilder builder) {
         try {
@@ -74,6 +81,7 @@ public class EmailService {
 
             mailSender.send(message);
             System.out.println("Checkmate email sent to " + builder.toEmail);
+
         } catch (Exception ex) {
             System.err.println("Failed to send Checkmate email to " + builder.toEmail + ": " + ex.getMessage());
             throw new EmailDeliveryException("Email delivery failed", ex);
@@ -81,56 +89,67 @@ public class EmailService {
     }
 
     private String getTemplate() {
-    if (cachedTemplate == null) {
-        try {
-            var stream = getClass().getClassLoader()
-                    .getResourceAsStream("templates/checkmate-email-template.html");
+        if (cachedTemplate == null) {
+            try {
+                var stream = getClass().getClassLoader()
+                        .getResourceAsStream("templates/checkmate-email-template.html");
 
-            if (stream == null) {
-                throw new EmailDeliveryException("Email template not found",null);
+                if (stream == null)
+                    throw new EmailDeliveryException("Email template not found", null);
+
+                cachedTemplate = new String(stream.readAllBytes(), StandardCharsets.UTF_8);
+
+            } catch (IOException e) {
+                throw new EmailDeliveryException("Failed to load email template", e);
             }
-
-            cachedTemplate = new String(stream.readAllBytes(), StandardCharsets.UTF_8);
-        } catch (IOException e) {
-            throw new EmailDeliveryException("Failed to load email template", e);
         }
+        return cachedTemplate;
     }
-    return cachedTemplate;
-}
-
 
     private String fillTemplate(String template, EmailBuilder builder) {
+
+        String credentialBlock = builder.credentialBlock != null ? builder.credentialBlock : "";
+
         return template
-                .replace("{{EMAIL_TITLE}}", builder.subject)
-                .replace("{{GREETING}}", builder.greeting)
-                .replace("{{MESSAGE_CONTENT}}", builder.message)
-                .replace("{{USERNAME}}", builder.username)
-                .replace("{{TEMP_PASSWORD}}", builder.tempPassword)
-                .replace("{{CTA_TEXT}}", builder.ctaText != null ? builder.ctaText : "")
-                .replace("{{CTA_URL}}", builder.ctaUrl != null ? builder.ctaUrl : "#")
-                .replace("{{FOOTER_MESSAGE}}", builder.footerMessage)
-                .replace("{{PRIMARY_COLOR}}", "#4FC3F7") // Blexta light blue
-                .replace("{{SECONDARY_COLOR}}", "#F1F3F6") // Blexta soft grey
-                .replace("{{ICON_URL}}", "https://checkmate.blexta.co.zw/favicon.ico"); // replace with your official icon
+                .replace("{{EMAIL_TITLE}}", n(builder.subject))
+                .replace("{{GREETING}}", n(builder.greeting))
+                .replace("{{MESSAGE_CONTENT}}", n(builder.message))
+                .replace("{{CREDENTIAL_BLOCK}}", credentialBlock)
+                .replace("{{CTA_TEXT}}", n(builder.ctaText))
+                .replace("{{CTA_URL}}", n(builder.ctaUrl))
+                .replace("{{FOOTER_MESSAGE}}", n(builder.footerMessage))
+                .replace("{{ICON_URL}}", "https://checkmate.blexta.co.zw/favicon.ico");
     }
 
-    private static class EmailBuilder {
+    private String n(String value) {
+        return value != null ? value : "";
+    }
+
+
+    public static class EmailBuilder {
         private String toEmail;
         private String subject;
         private String greeting;
         private String message;
-        private String username;
-        private String tempPassword;
         private String ctaText;
         private String ctaUrl;
-        private String footerMessage = "Powered by Checkmate.";
+        private String footerMessage;
+        private String credentialBlock;
 
         public EmailBuilder to(String email) { this.toEmail = email; return this; }
         public EmailBuilder subject(String subject) { this.subject = subject; return this; }
         public EmailBuilder greeting(String greeting) { this.greeting = greeting; return this; }
-        public EmailBuilder message(String message) { this.message = message; return this; }
-        public EmailBuilder credentials(String username, String tempPassword) { this.username = username; this.tempPassword = tempPassword; return this; }
+        public EmailBuilder message(String msg) { this.message = msg; return this; }
         public EmailBuilder cta(String text, String url) { this.ctaText = text; this.ctaUrl = url; return this; }
         public EmailBuilder footerMessage(String footer) { this.footerMessage = footer; return this; }
+
+        public EmailBuilder credentials(String username, String tempPassword) {
+            this.credentialBlock =
+                    "<div class=\"credentials\">" +
+                            "<div>" + username + "</div>" +
+                            "<div>" + tempPassword + "</div>" +
+                    "</div>";
+            return this;
+        }
     }
 }

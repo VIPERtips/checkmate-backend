@@ -1,6 +1,6 @@
 package co.zw.blexta.checkmate.staff_users;
 
-import co.zw.blexta.checkmate.auth.users.AuthUserService;
+
 import co.zw.blexta.checkmate.common.dto.RegisterUserDto;
 import lombok.RequiredArgsConstructor;
 import org.springframework.boot.CommandLineRunner;
@@ -12,14 +12,16 @@ public class AdminUserSeeder implements CommandLineRunner {
 
     private final UserService userService;
 
+
     @Override
     public void run(String... args) {
         seedAdminUser();
     }
 
     private void seedAdminUser() {
-        String email = "viperthehackers@gmail.com"; 
+        String email = "tadiwachipungu2@gmail.com"; 
         String fullName = "System Administrator";
+       
 
         try {
             // Check if user exists
