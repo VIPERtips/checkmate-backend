@@ -19,7 +19,7 @@ public class AdminUserSeeder implements CommandLineRunner {
     }
 
     private void seedAdminUser() {
-        String email = "tadiwachipungu2@gmail.com"; 
+        String email = "viperthehackers@gmail.com"; 
         String fullName = "System Administrator";
        
 
