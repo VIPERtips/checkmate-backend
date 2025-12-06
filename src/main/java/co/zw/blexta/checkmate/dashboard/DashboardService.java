@@ -11,10 +11,9 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
-import java.util.ArrayList;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
+import java.time.Month;
+import java.time.format.TextStyle;
+import java.util.*;
 
 @Service
 @RequiredArgsConstructor
@@ -30,73 +29,84 @@ public class DashboardService {
 
         long totalGadgets = deviceRepository.count();
         long activeUsers = userRepository.count();
-        long upcomingEvents = 0; // replace with your events logic
-
-        // Utilization = % of assigned gadgets
+        long upcomingEvents = 0; 
         long assignedCount = deviceRepository.countByStatus("assigned");
         double utilizationRate = totalGadgets > 0 ? (assignedCount * 100.0 / totalGadgets) : 0;
 
-        // For staff, show their own gadgets
-        long myGadgets = 0;
+        Long myGadgets = null;
         if (!isAdmin && !isManager) {
-            myGadgets = assignmentRepository.countByAssignedTo_Id(authUser.getId());
+            myGadgets = Optional.ofNullable(authUser.getId())
+                    .map(id -> {
+                        Long count = assignmentRepository.countByAssignedTo_Id(id);
+                        return count != null ? count : 0L;
+                    })
+                    .orElse(0L);
         }
 
-        // Only return relevant stats per role
-        return DashboardStatsDto.builder()
-                .totalGadgets(isAdmin || isManager ? totalGadgets : null)
-                .activeUsers(isAdmin ? activeUsers : (isManager ? activeUsers : null))
-                .upcomingEvents(isAdmin || isManager ? upcomingEvents : null)
-                .utilizationRate(utilizationRate)
-                .myGadgets(!isAdmin && !isManager ? myGadgets : null)
-                .build();
-    }
-    
-    public List<MonthlyTrendDto> getGadgetTrends() {
 
+
+        return DashboardStatsDto.builder()
+                .totalGadgets(isAdmin || isManager ? totalGadgets : 0L)
+                .activeUsers(isAdmin ? activeUsers : (isManager ? activeUsers : 0L))
+                .upcomingEvents(isAdmin || isManager ? upcomingEvents : 0L)
+                .utilizationRate(utilizationRate)
+                .myGadgets(!isAdmin && !isManager ? myGadgets : 0L)
+                .build();
+
+    }
+
+    public List<MonthlyTrendDto> getGadgetTrends() {
         List<Object[]> checkouts = assignmentRepository.getMonthlyCheckouts();
         List<Object[]> checkins = assignmentRepository.getMonthlyCheckins();
 
         Map<String, MonthlyTrendDto> trends = new LinkedHashMap<>();
 
-        // Add checkouts data
-        for (Object[] row : checkouts) {
-        	String month = formatMonth((String) row[0]);
+        if (checkouts != null) {
+            for (Object[] row : checkouts) {
+                if (row == null || row.length < 2) continue;
 
-            long count = ((Number) row[1]).longValue();
+                String raw = row[0] == null ? null : row[0].toString();
+                long count = row[1] == null ? 0L : ((Number) row[1]).longValue();
+                String month = formatMonthSafe(raw);
 
-            trends.put(month, new MonthlyTrendDto(month, count, 0));
+                trends.put(month, new MonthlyTrendDto(month, count, 0));
+            }
         }
 
-        // Add checkins data
-        for (Object[] row : checkins) {
-        	String month = formatMonth((String) row[0]);
-            long count = ((Number) row[1]).longValue();
+        if (checkins != null) {
+            for (Object[] row : checkins) {
+                if (row == null || row.length < 2) continue;
 
-            trends.compute(month, (k, existing) ->
-                    existing == null
-                            ? new MonthlyTrendDto(month, 0, count)
-                            : new MonthlyTrendDto(month, existing.getCheckouts(), count)
-            );
+                String raw = row[0] == null ? null : row[0].toString();
+                long count = row[1] == null ? 0L : ((Number) row[1]).longValue();
+                String month = formatMonthSafe(raw);
+
+                trends.compute(month, (k, existing) ->
+                        existing == null
+                                ? new MonthlyTrendDto(month, 0, count)
+                                : new MonthlyTrendDto(month, existing.getCheckouts(), count)
+                );
+            }
         }
 
         return new ArrayList<>(trends.values());
     }
-    
-    private String formatMonth(String raw) {
+
+    private String formatMonthSafe(String raw) {
+        if (raw == null || raw.isBlank()) {
+            var now = LocalDate.now();
+            return now.getMonth().getDisplayName(TextStyle.SHORT, Locale.ENGLISH) + " " + now.getYear();
+        }
+
         String[] parts = raw.split("-");
-        int year = Integer.parseInt(parts[0]);
-        int month = Integer.parseInt(parts[1]);
+        if (parts.length < 2) return raw;
 
-        return LocalDate.of(year, month, 1)
-                .getMonth()
-                .name()
-                .substring(0, 3)
-                .toLowerCase()
-                .replaceFirst(".", String.valueOf(Character.toUpperCase(
-                        LocalDate.of(year, month, 1).getMonth().name().charAt(0)
-                ))) + " " + year;
+        try {
+            int year = Integer.parseInt(parts[0]);
+            int month = Integer.parseInt(parts[1]);
+            return Month.of(month).getDisplayName(TextStyle.SHORT, Locale.ENGLISH) + " " + year;
+        } catch (Exception e) {
+            return raw;
+        }
     }
-
-
 }

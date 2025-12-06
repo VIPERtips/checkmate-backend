@@ -13,7 +13,7 @@ public interface DeviceAssignmentRepository extends JpaRepository<DeviceAssignme
     @Query(value = "SELECT * FROM device_assignment WHERE device_id = :deviceId ORDER BY assignment_date DESC LIMIT 1", nativeQuery = true)
     Optional<DeviceAssignment> findLatestByDeviceId(Long deviceId);
 
-    long countByAssignedTo_Id(Long userId);
+    Long countByAssignedTo_Id(Long userId);
     @Query(value = """
     	    SELECT DATE_FORMAT(assignment_date, '%Y-%m') AS month,
     	           COUNT(*) AS count
