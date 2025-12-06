@@ -10,4 +10,8 @@ public interface DeviceAssignmentService {
 
     DeviceAssignmentDto checkInDevice(Long deviceId, Long performedByUserId);
     List<DeviceAssignmentDto> getRecentAssignments(int limit);
+    List<DeviceAssignmentDto> getDeviceHistory(Long deviceId);
+    List<DeviceAssignmentDto> getAssignedDevices();
+    DeviceAssignmentDto requestReturnDevice(Long deviceId, Long requestedByUserId);
+
 }

@@ -17,4 +17,5 @@ public class DeviceAssignmentDto {
     private String assignedByFullName;
     private String status;
     private LocalDateTime assignedAt;
+    private String action;
 }

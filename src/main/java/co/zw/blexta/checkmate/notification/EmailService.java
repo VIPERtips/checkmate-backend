@@ -57,14 +57,19 @@ public class EmailService {
     public void sendReminder(String recipientEmail, String name, String item, String due) {
         EmailBuilder builder = new EmailBuilder()
                 .to(recipientEmail)
-                .subject("Reminder: Return " + item)
-                .greeting("Hi " + name + ",")
-                .message("Please return " + item + " by " + due + ".")
-                .cta("View Dashboard", BASE_URL)
-                .footerMessage("Checkmate • Blame With Proof");
+                .subject("Action Required: Please Return " + item)
+                .greeting("Hello " + name + ",")
+                .message(
+                        "This is a friendly reminder that the device \"" + item +
+                                "\" assigned to you is due for return by " + due +
+                                ". Kindly ensure it is returned on time to avoid any disruption or follow-up notifications."
+                )
+                .cta("View Device Details", BASE_URL )
+                .footerMessage("Checkmate • Accountability Made Simple");
 
         dispatchEmail(builder);
     }
+
 
     private void dispatchEmail(EmailBuilder builder) {
         try {

@@ -1,7 +1,9 @@
 package co.zw.blexta.checkmate.device.assignments;
 
+import co.zw.blexta.checkmate.device.Device;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 import java.util.List;
 import java.util.Optional;
@@ -36,6 +38,16 @@ public interface DeviceAssignmentRepository extends JpaRepository<DeviceAssignme
     	""", nativeQuery = true)
     	List<Object[]> getMonthlyCheckins();
 
+    List<DeviceAssignment> findByDeviceOrderByAssignmentDateDesc(Device device);
 
-
+    @Query("""
+    SELECT da FROM DeviceAssignment da
+    WHERE da.device.status = 'assigned' 
+    AND da.assignmentDate = (
+        SELECT MAX(sub.assignmentDate) 
+        FROM DeviceAssignment sub 
+        WHERE sub.device = da.device
+    )
+""")
+    List<DeviceAssignment> findCurrentlyAssignedDevices();
 }

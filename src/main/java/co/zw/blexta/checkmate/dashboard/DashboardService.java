@@ -29,7 +29,7 @@ public class DashboardService {
 
         long totalGadgets = deviceRepository.count();
         long activeUsers = userRepository.count();
-        long upcomingEvents = 0; 
+        long upcomingEvents = 0;
         long assignedCount = deviceRepository.countByStatus("assigned");
         double utilizationRate = totalGadgets > 0 ? (assignedCount * 100.0 / totalGadgets) : 0;
 

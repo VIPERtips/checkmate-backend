@@ -133,4 +133,39 @@ public class DeviceController {
                 .build();
     }
 
+    @GetMapping("/{id}/history")
+    public ApiResponse<List<DeviceAssignmentDto>> getDeviceHistory(@PathVariable Long id) {
+        List<DeviceAssignmentDto> history = deviceAssignmentService.getDeviceHistory(id);
+        return ApiResponse.<List<DeviceAssignmentDto>>builder()
+                .success(true)
+                .message("Device assignment history retrieved successfully")
+                .data(history)
+                .build();
+    }
+
+    @GetMapping("/assigned")
+    public ApiResponse<List<DeviceAssignmentDto>> getAssignedDevices() {
+        List<DeviceAssignmentDto> assigned = deviceAssignmentService.getAssignedDevices();
+        return ApiResponse.<List<DeviceAssignmentDto>>builder()
+                .success(true)
+                .message("Currently assigned devices retrieved successfully")
+                .data(assigned)
+                .build();
+    }
+
+    @PostMapping("/{id}/request-return")
+    public ApiResponse<DeviceAssignmentDto> requestReturn(
+            @RequestHeader("Authorization") String authHeader,
+            @PathVariable Long id) {
+
+        Long userId = sessionUtil.extractUserId(authHeader);
+        DeviceAssignmentDto dto = deviceAssignmentService.requestReturnDevice(id, userId);
+
+        return ApiResponse.<DeviceAssignmentDto>builder()
+                .success(true)
+                .message("Return request sent successfully")
+                .data(dto)
+                .build();
+    }
+
 }

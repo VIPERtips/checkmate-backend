@@ -36,4 +36,10 @@ public class DeviceAssignment {
 
     @CreationTimestamp
     private LocalDateTime assignmentDate;
+
+    @ManyToOne
+    @JoinColumn(name = "return_requested_by_id")
+    private User returnRequestedBy;
+
+    private LocalDateTime returnRequestedAt;
 }

@@ -5,6 +5,7 @@ import co.zw.blexta.checkmate.common.exception.BadRequestException;
 import co.zw.blexta.checkmate.common.exception.ResourceNotFoundException;
 import co.zw.blexta.checkmate.device.Device;
 import co.zw.blexta.checkmate.device.DeviceRepository;
+import co.zw.blexta.checkmate.notification.EmailService;
 import co.zw.blexta.checkmate.staff_users.User;
 import co.zw.blexta.checkmate.staff_users.UserRepository;
 import lombok.RequiredArgsConstructor;
@@ -19,6 +20,7 @@ public class DeviceAssignmentServiceImpl implements DeviceAssignmentService {
     private final DeviceAssignmentRepository assignmentRepository;
     private final DeviceRepository deviceRepository;
     private final UserRepository userRepository;
+    private final EmailService emailService;
 
     @Override
     public DeviceAssignmentDto assignDevice(Long deviceId, Long assignedToUserId, Long assignedByUserId) {
@@ -81,18 +83,69 @@ public class DeviceAssignmentServiceImpl implements DeviceAssignmentService {
                 .toList();
     }
 
+    @Override
+    public List<DeviceAssignmentDto> getDeviceHistory(Long deviceId) {
+        Device device = deviceRepository.findById(deviceId)
+                .orElseThrow(() -> new ResourceNotFoundException("Device not found"));
+
+        return assignmentRepository.findByDeviceOrderByAssignmentDateDesc(device)
+                .stream()
+                .map(this::toDto)
+                .toList();
+    }
+
+    @Override
+    public List<DeviceAssignmentDto> getAssignedDevices() {
+        return assignmentRepository.findCurrentlyAssignedDevices()
+                .stream()
+                .map(this::toDto)
+                .toList();
+    }
+
+    @Override
+    public DeviceAssignmentDto requestReturnDevice(Long deviceId, Long requestedByUserId) {
+
+        Device device = deviceRepository.findById(deviceId)
+                .orElseThrow(() -> new ResourceNotFoundException("Device not found"));
+
+        User requester = userRepository.findById(requestedByUserId)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+
+        DeviceAssignment assignment = assignmentRepository.findLatestByDeviceId(deviceId)
+                .orElseThrow(() -> new BadRequestException("No active assignment found for this device"));
+
+        assignment.setReturnRequestedBy(requester);
+        assignment.setReturnRequestedAt(java.time.LocalDateTime.now());
+        assignmentRepository.save(assignment);
+
+        // Send email to assigned user
+        if (assignment.getAssignedTo() != null) {
+            emailService.sendReminder(
+                    assignment.getAssignedTo().getEmail(),
+                    assignment.getAssignedTo().getFullName(),
+                    assignment.getDevice().getName(),
+                    "ASAP"
+            );
+        }
+
+        return toDto(assignment);
+    }
+
 
     private DeviceAssignmentDto toDto(DeviceAssignment assignment) {
+        boolean isAssigned = assignment.getAssignedTo() != null;
+
         return DeviceAssignmentDto.builder()
                 .id(assignment.getId())
                 .deviceId(assignment.getDevice().getId())
                 .deviceName(assignment.getDevice().getName())
-                .assignedToUserId(assignment.getAssignedTo() != null ? assignment.getAssignedTo().getId() : null)
-                .assignedToFullName(assignment.getAssignedTo() != null ? assignment.getAssignedTo().getFullName() : null)
+                .assignedToUserId(isAssigned ? assignment.getAssignedTo().getId() : null)
+                .assignedToFullName(isAssigned ? assignment.getAssignedTo().getFullName() : null)
                 .assignedByUserId(assignment.getAssignedBy() != null ? assignment.getAssignedBy().getId() : null)
                 .assignedByFullName(assignment.getAssignedBy() != null ? assignment.getAssignedBy().getFullName() : null)
                 .status(assignment.getDevice().getStatus())
                 .assignedAt(assignment.getAssignmentDate())
+                .action(isAssigned ? "checked out" : "checked in")
                 .build();
     }
 }
