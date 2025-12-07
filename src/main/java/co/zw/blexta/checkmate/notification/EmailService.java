@@ -25,7 +25,50 @@ public class EmailService {
     private JavaMailSender mailSender;
 
     private String cachedTemplate;
+    
+    @Async("notificationExecutor")
+    public void sendAccountUpdateNotification(String recipientEmail, String oldEmail, String name) {
+        EmailBuilder builder = new EmailBuilder()
+                .to(recipientEmail)
+                .subject("Your Checkmate Account Information Has Been Updated")
+                .greeting("Hi " + name + ",")
+                .message("Your account details have been updated. Your email was changed from " 
+                          + oldEmail + " to " + recipientEmail + ". If this wasn't you, contact support immediately.")
+                .cta("Go To Dashboard", BASE_URL + "/login")
+                .footerMessage("Checkmate • Blame With Proof");
 
+        dispatchEmail(builder);
+    }
+
+
+    @Async("notificationExecutor")
+    public void sendAccountDeactivationEmail(String recipientEmail, String name) {
+        EmailBuilder builder = new EmailBuilder()
+                .to(recipientEmail)
+                .subject("Your Checkmate Account Has Been Deactivated")
+                .greeting("Hi " + name + ",")
+                .message("Your account has been deactivated. You will no longer be able to log in. Contact support if this is a mistake.")
+                .cta("Contact Support", BASE_URL + "/support")
+                .footerMessage("Checkmate • Accountability Made Simple");
+
+        dispatchEmail(builder);
+    }
+
+    @Async("notificationExecutor")
+    public void sendAccountReactivationEmail(String recipientEmail, String name, String tempPassword) {
+        EmailBuilder builder = new EmailBuilder()
+                .to(recipientEmail)
+                .subject("Your Checkmate Account Has Been Reactivated")
+                .greeting("Hi " + name + ",")
+                .message("Your account has been reactivated. Below are your login credentials.")
+                .credentials("Username: " + recipientEmail, "Temporary Password: " + tempPassword)
+                .cta("Go To Dashboard", BASE_URL + "/login")
+                .footerMessage("Checkmate • Blame With Proof");
+
+        dispatchEmail(builder);
+    }
+
+    
     @Async("notificationExecutor")
     public void sendAccountOnboardingEmail(String recipientEmail, String name, String tempPassword) {
         EmailBuilder builder = new EmailBuilder()

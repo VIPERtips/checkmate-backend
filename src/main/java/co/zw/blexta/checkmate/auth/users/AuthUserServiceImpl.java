@@ -31,211 +31,171 @@ import java.util.Set;
 @RequiredArgsConstructor
 public class AuthUserServiceImpl implements AuthUserService {
 
-    private final AuthUserRepository userRepo;
-    private final AuthRoleRepository roleRepo;
-    private final PasswordEncoder passwordEncoder;
-    private final AuthenticationManager authManager;
-    private final EmailService emailService;
-    private final JwtService jwtService;
-    private final AuthLoginAuditService authLoginAuditService;
-    private final UserRepository staffUserRepo;
-    private final UserRepository staffRepo;
+	private final AuthUserRepository userRepo;
+	private final AuthRoleRepository roleRepo;
+	private final PasswordEncoder passwordEncoder;
+	private final AuthenticationManager authManager;
+	private final EmailService emailService;
+	private final JwtService jwtService;
+	private final AuthLoginAuditService authLoginAuditService;
+	private final UserRepository staffUserRepo;
+	private final UserRepository staffRepo;
 
-    @Override
-    public ApiResponse<?> authenticate(LoginDto loginDto) {
+	@Override
+	public ApiResponse<?> authenticate(LoginDto loginDto) {
 
-        boolean loginSuccess = false;
-        AuthUser user = null;
-        String accessToken = null;
-        String refreshToken = null;
+		boolean loginSuccess = false;
+		AuthUser user = null;
 
-        try {
-            authManager.authenticate(
-                    new UsernamePasswordAuthenticationToken(
-                            loginDto.email(),
-                            loginDto.password()
-                    )
-            );
+		try {
+			try {
+				authManager
+						.authenticate(new UsernamePasswordAuthenticationToken(loginDto.email(), loginDto.password()));
+			} catch (org.springframework.security.authentication.DisabledException ex) {
+				throw new BadRequestException("Account is disabled. Contact admin.");
+			} catch (org.springframework.security.authentication.BadCredentialsException ex) {
+				throw new BadRequestException("Invalid credentials");
+			}
 
-            user = userRepo.findByEmail(loginDto.email())
-                    .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+			user = userRepo.findByEmail(loginDto.email())
+					.orElseThrow(() -> new ResourceNotFoundException("User not found"));
 
-            User staffUser = null;
-            String fullName = null;
-            if (user.getId() != null) {
-                staffUser = staffUserRepo.findByAuthUserId(user.getId());
-                if (staffUser != null) fullName = staffUser.getFullName();
-            }
-            
-            
-            boolean isFirstLogin = (user.getLastLoginAt() == null);
-            if(isFirstLogin) {
-            	user.setLastLoginAt(new Date());
-            	userRepo.save(user);
-            }
+			if (!user.isEnabled()) {
+				throw new BadRequestException("Account is disabled. Contact admin.");
+			}
 
-            Map<String, Object> sessionData = Map.of(
-                    "userId", user.getId(),
-                    "email", user.getEmail(),
-                    "name", fullName,
-                    "roles", user.getRoles().stream()
-                            .map(r -> r.getName().toLowerCase())
-                            .toList()
-            );
+			User staffUser = staffUserRepo.findByAuthUserId(user.getId());
+			String fullName = (staffUser != null) ? staffUser.getFullName() : null;
 
-            accessToken = jwtService.generateAccessToken(user, sessionData);
-            refreshToken = jwtService.generateRefreshToken(user);
+			boolean isFirstLogin = (user.getLastLoginAt() == null);
+			if (isFirstLogin) {
+				user.setLastLoginAt(new Date());
+				userRepo.save(user);
+			}
 
-            loginSuccess = true;
+			Map<String, Object> sessionData = Map.of("userId", user.getId(), "email", user.getEmail(), "name", fullName,
+					"roles", user.getRoles().stream().map(r -> r.getName().toLowerCase()).toList());
 
-            return ApiResponse.builder()
-                    .success(true)
-                    .message("Login successful")
-                    .data(Map.of(
-                            "accessToken", accessToken,
-                            "refreshToken", refreshToken,
-                            "user", sessionData
-                            ,"isFirstLogin", isFirstLogin
-                    ))
-                    .build();
+			String accessToken = jwtService.generateAccessToken(user, sessionData);
+			String refreshToken = jwtService.generateRefreshToken(user);
 
-        } finally {
-            String emailToLog = (user != null) ? user.getEmail() : loginDto.email();
-            Long userIdToLog = (user != null) ? user.getId() : null;
+			loginSuccess = true;
 
-            CreateLoginAuditDto auditDto = CreateLoginAuditDto.builder()
-                    .userId(userIdToLog)
-                    .emailAttempted(emailToLog)
-                    .loggedIn(loginSuccess)
-                    .ipAddress(IpUtil.getClientIp())
-                    .userAgent(loginDto.userAgent())
-                    .build();
+			return ApiResponse.builder().success(true).message("Login successful").data(Map.of("accessToken",
+					accessToken, "refreshToken", refreshToken, "user", sessionData, "isFirstLogin", isFirstLogin))
+					.build();
 
-            authLoginAuditService.saveAudit(auditDto);
-        }
-    }
+		} finally {
+			CreateLoginAuditDto auditDto = CreateLoginAuditDto.builder().userId((user != null) ? user.getId() : null)
+					.emailAttempted(loginDto.email()).loggedIn(loginSuccess).ipAddress(IpUtil.getClientIp())
+					.userAgent(loginDto.userAgent()).build();
 
-    @Override
-    public ApiResponse<?> logout(String accessToken) {
-        AuthUser user = userRepo.findById(Long.parseLong(jwtService.extractSubject(accessToken)))
-                .orElse(null);
+			authLoginAuditService.saveAudit(auditDto);
+		}
+	}
 
-        if (user != null) {
-            user.setLastLogoutAt(new Date());
-            userRepo.save(user);
-        }
+	@Override
+	public ApiResponse<?> logout(String accessToken) {
+		AuthUser user = userRepo.findById(Long.parseLong(jwtService.extractSubject(accessToken))).orElse(null);
 
-        return ApiResponse.builder()
-                .success(true)
-                .message("Logged out, token invalidated")
-                .build();
-    }
+		if (user != null) {
+			user.setLastLogoutAt(new Date());
+			userRepo.save(user);
+		}
 
-    @Override
-    public ApiResponse<?> getCurrentSession(String accessToken) {
+		return ApiResponse.builder().success(true).message("Logged out, token invalidated").build();
+	}
 
-        AuthUser user = userRepo.findById(Long.parseLong(jwtService.extractSubject(accessToken)))
-                .orElse(null);
+	@Override
+	public ApiResponse<?> getCurrentSession(String accessToken) {
 
-        if (user == null || !jwtService.isTokenValid(accessToken, null, user.getLastLogoutAt())) {
-            return ApiResponse.builder()
-                    .success(false)
-                    .message("Session expired or invalid")
-                    .data(null)
-                    .build();
-        }
+		AuthUser user = userRepo.findById(Long.parseLong(jwtService.extractSubject(accessToken))).orElse(null);
 
-        var claims = jwtService.extractAllClaims(accessToken);
-        Map<String, Object> sessionData = Map.of(
-                "userId", claims.get("userId"),
-                "email", claims.get("email"),
-                "name", claims.get("name"),
-                "roles", claims.get("roles")
-        );
+		if (user == null || !jwtService.isTokenValid(accessToken, null, user.getLastLogoutAt())) {
+			return ApiResponse.builder().success(false).message("Session expired or invalid").data(null).build();
+		}
 
-        return ApiResponse.builder()
-                .success(true)
-                .message("Session active")
-                .data(Map.of(
-                        "accessToken", accessToken,
-                        "user", sessionData
-                ))
-                .build();
-    }
+		var claims = jwtService.extractAllClaims(accessToken);
+		Map<String, Object> sessionData = Map.of("userId", claims.get("userId"), "email", claims.get("email"), "name",
+				claims.get("name"), "roles", claims.get("roles"));
 
-    @Override
-    public AuthUser getUserById(Long id) {
-        return userRepo.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("User not found for :" + id));
-    }
+		return ApiResponse.builder().success(true).message("Session active")
+				.data(Map.of("accessToken", accessToken, "user", sessionData)).build();
+	}
 
-    @Override
-    @Transactional
-    public AuthUser registerUser(String email, Long roleId, String fullname) {
+	@Override
+	public AuthUser getUserById(Long id) {
+		return userRepo.findById(id).orElseThrow(() -> new ResourceNotFoundException("User not found for :" + id));
+	}
 
-        if (userRepo.existsByEmail(email)) {
-            throw new BadRequestException("Email already registered");
-        }
+	@Override
+	@Transactional
+	public AuthUser registerUser(String email, Long roleId, String fullname) {
 
-        String tempPassword = generateRandomPassword(8);
-        String hashedPassword = passwordEncoder.encode(tempPassword);
+		if (userRepo.existsByEmail(email)) {
+			throw new BadRequestException("Email already registered");
+		}
 
-        AuthRole role = roleRepo.findById(roleId)
-                .orElseThrow(() -> new ResourceNotFoundException("Role not found"));
+		String tempPassword = generateRandomPassword(8);
+		String hashedPassword = passwordEncoder.encode(tempPassword);
 
-        AuthUser user = AuthUser.builder()
-                .email(email)
-                .password(hashedPassword)
-                .enabled(true)
-                .accountNonExpired(true)
-                .credentialsNonExpired(true)
-                .accountNonLocked(true)
-                .roles(Set.of(role))
-                .build();
+		AuthRole role = roleRepo.findById(roleId).orElseThrow(() -> new ResourceNotFoundException("Role not found"));
 
-        userRepo.save(user);
-        emailService.sendAccountOnboardingEmail(user.getEmail(), fullname, tempPassword);
-        System.out.println("The generated password is: "+tempPassword);
-        return user;
-    }
+		AuthUser user = AuthUser.builder().email(email).password(hashedPassword).enabled(true).accountNonExpired(true)
+				.credentialsNonExpired(true).accountNonLocked(true).roles(Set.of(role)).build();
 
-    private String generateRandomPassword(int length) {
-        String chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
-        SecureRandom random = new SecureRandom();
-        StringBuilder sb = new StringBuilder();
-        for (int i = 0; i < length; i++) {
-            sb.append(chars.charAt(random.nextInt(chars.length())));
-        }
-        return sb.toString();
-    }
+		userRepo.save(user);
+		emailService.sendAccountOnboardingEmail(user.getEmail(), fullname, tempPassword);
+		System.out.println("The generated password is: " + tempPassword);
+		return user;
+	}
+
+	private String generateRandomPassword(int length) {
+		String chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+		SecureRandom random = new SecureRandom();
+		StringBuilder sb = new StringBuilder();
+		for (int i = 0; i < length; i++) {
+			sb.append(chars.charAt(random.nextInt(chars.length())));
+		}
+		return sb.toString();
+	}
 
 	@Override
 	public ApiResponse<?> changePassword(Long userId, ChangePasswordDto dto) {
-		AuthUser user = userRepo.findById(userId)
-				.orElseThrow(()-> new ResourceNotFoundException("User not found"));
-		
+		AuthUser user = userRepo.findById(userId).orElseThrow(() -> new ResourceNotFoundException("User not found"));
+
 		User staffUser = staffRepo.findByAuthUserId(userId);
-		
-		
-		if(!passwordEncoder.matches(dto.oldPassword(), user.getPassword())) {
+
+		if (!passwordEncoder.matches(dto.oldPassword(), user.getPassword())) {
 			throw new BadRequestException("Old password is incorrect");
 		}
-		
-		if(!dto.newPassword().equals(dto.confirmPassword())) {
+
+		if (!dto.newPassword().equals(dto.confirmPassword())) {
 			throw new BadRequestException("New passwords do not match");
 		}
-		
+
 		String hashedNew = passwordEncoder.encode(dto.newPassword());
 		user.setPassword(hashedNew);
-		
+
 		userRepo.save(user);
-		
+
 		emailService.sendPasswordChangedNotification(user.getEmail(), staffUser.getFullName());
-		
-		  return ApiResponse.builder()
-	                .success(true)
-	                .message("Password updated successfully")
-	                .data(null)
-	                .build();
+
+		return ApiResponse.builder().success(true).message("Password updated successfully").data(null).build();
 	}
+
+	@Override
+	public String resetPasswordForUser(AuthUser user, String fullName) {
+		if (user == null)
+			throw new BadRequestException("User cannot be null");
+
+		String tempPassword = generateRandomPassword(8);
+		String hashedPassword = passwordEncoder.encode(tempPassword);
+		user.setPassword(hashedPassword);
+		userRepo.save(user);
+		emailService.sendAccountReactivationEmail(user.getEmail(), fullName, tempPassword);
+
+		return tempPassword;
+	}
+
 }

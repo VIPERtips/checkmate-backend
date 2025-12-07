@@ -1,6 +1,7 @@
 package co.zw.blexta.checkmate.staff_users;
 
 import co.zw.blexta.checkmate.auth.users.AuthUser;
+import co.zw.blexta.checkmate.auth.users.AuthUserRepository;
 import co.zw.blexta.checkmate.auth.users.AuthUserService;
 import co.zw.blexta.checkmate.common.dto.RegisterUserDto;
 import co.zw.blexta.checkmate.common.dto.UpdateUserDto;
@@ -9,6 +10,7 @@ import co.zw.blexta.checkmate.common.exception.BadRequestException;
 import co.zw.blexta.checkmate.common.exception.ConflictException;
 import co.zw.blexta.checkmate.common.exception.ResourceNotFoundException;
 import co.zw.blexta.checkmate.common.response.ApiResponse;
+import co.zw.blexta.checkmate.notification.EmailService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -19,117 +21,146 @@ import java.util.List;
 @RequiredArgsConstructor
 public class UserServiceImpl implements UserService {
 
-    private final AuthUserService authUserService;
-    private final UserRepository userRepo;
+	private final AuthUserService authUserService;
+	private final UserRepository userRepo;
+	private final AuthUserRepository authUserRepository;
+	private final EmailService emailService;
 
-    @Override
-    public User findById(Long id) {
-        return userRepo.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("User not found with id " + id));
-    }
+	@Override
+	public User findById(Long id) {
+		return userRepo.findById(id).orElseThrow(() -> new ResourceNotFoundException("User not found with id " + id));
+	}
 
-    @Override
-    public User getUserByEmail(String email) {
-        return userRepo.findByEmail(email)
-                .orElseThrow(() -> new ResourceNotFoundException("User not found with email " + email));
-    }
+	@Override
+	public User getUserByEmail(String email) {
+		return userRepo.findByEmail(email)
+				.orElseThrow(() -> new ResourceNotFoundException("User not found with email " + email));
+	}
 
-    @Override
-    public List<UserDto> getAllUsers() {
-        return userRepo.findAll()
-                .stream()
-                .map(this::mapToDto)
-                .toList();
-    }
+	@Override
+	public List<UserDto> getAllUsers() {
+		return userRepo.findAll().stream().map(this::mapToDto).toList();
+	}
 
+	@Override
+	@Transactional
+	public ApiResponse<String> createUser(RegisterUserDto dto) {
+		if (dto == null)
+			throw new BadRequestException("Register payload is required");
 
-    @Override
-    @Transactional
-    public ApiResponse<String> createUser(RegisterUserDto dto) {
-        if (dto == null) throw new BadRequestException("Register payload is required");
+		User existing = userRepo.findByEmail(dto.email()).orElse(null);
 
-        boolean existsInStaff = userRepo.existsByEmail(dto.email());
-        if (existsInStaff) throw new ConflictException("A staff user with that email already exists");
-
-        User user = User.builder()
-                .fullName(dto.fullName())
-                .email(dto.email())
-                .build();
-
-        if (dto.createLogin()) {
-            AuthUser authUser = authUserService.registerUser(dto.email(), dto.roleId(), dto.fullName());
-            user.setAuthUser(authUser);
-        }
-
-        userRepo.save(user);
-
-        return ApiResponse.<String>builder()
-                .message("User created successfully")
-                .success(true)
-                .data(null)
-                .build();
-    }
+		if (existing != null && existing.isActive()) {
+			throw new ConflictException("A staff user with that email already exists");
+		}
 
 
-    @Override
-    @Transactional
-    public ApiResponse<UpdateUserDto> updateUser(UpdateUserDto dto, Long id) {
-        if (dto == null) throw new BadRequestException("Update payload is required");
+		User user;
+		if (existing != null && !existing.isActive()) {
+			user = existing;
+			user.setActive(true);
+			user.setFullName(dto.fullName());
+			user.setEmail(dto.email());
+		} else {
+			user = User.builder().fullName(dto.fullName()).email(dto.email()).build();
+		}
 
-        User existingUser = userRepo.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("User not found with id " + id));
+		if (dto.createLogin()) {
+			AuthUser authUser;
 
-        // Only update fields that are provided
-        if (dto.fullName() != null) existingUser.setFullName(dto.fullName());
+			if (authUserRepository.existsByEmail(dto.email())) {
+				authUser = authUserRepository.findByEmail(dto.email()).orElseThrow();
 
-        if (dto.email() != null && !dto.email().equalsIgnoreCase(existingUser.getEmail())) {
-            // Only throw conflict if some other user has this email
-            if (userRepo.existsByEmail(dto.email())) {
-                throw new ConflictException("Another user with that email already exists");
-            }
-            existingUser.setEmail(dto.email());
-        }
+				if (!authUser.isEnabled()) {
+					authUser.setEnabled(true);
+					authUserService.resetPasswordForUser(authUser, dto.fullName());
+					authUserRepository.save(authUser);
+				}
 
-        userRepo.save(existingUser);
+			} else {
+				authUser = authUserService.registerUser(dto.email(), dto.roleId(), dto.fullName());
+			}
 
-        return ApiResponse.<UpdateUserDto>builder()
-                .message("User updated successfully")
-                .success(true)
-                .data(dto)
-                .build();
-    }
+			user.setAuthUser(authUser);
+		}
 
+		userRepo.save(user);
 
-    @Override
-    @Transactional
-    public ApiResponse<String> deleteUserById(Long id) {
-        User user = userRepo.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("User not found with id " + id));
+		return ApiResponse.<String>builder().message("User created successfully").success(true).data(null).build();
+	}
 
-        userRepo.delete(user);
+	@Override
+	@Transactional
+	public ApiResponse<UpdateUserDto> updateUser(UpdateUserDto dto, Long id) {
+		if (dto == null)
+			throw new BadRequestException("Update payload is required");
 
-        return ApiResponse.<String>builder()
-                .message("User deleted successfully")
-                .success(true)
-                .data(null)
-                .build();
-    }
+		User existingUser = userRepo.findById(id)
+				.orElseThrow(() -> new ResourceNotFoundException("User not found with id " + id));
 
-    public UserDto mapToDto(User user) {
-        String roleName = null;
-        if (user.getAuthUser() != null && user.getAuthUser().getRoles() != null && !user.getAuthUser().getRoles().isEmpty()) {
+		String oldEmail = existingUser.getEmail();
+		String oldFullName = existingUser.getFullName();
 
-            roleName = user.getAuthUser().getRoles().iterator().next().getName();
-        }
+		if (dto.fullName() != null)
+			existingUser.setFullName(dto.fullName());
 
-        return UserDto.builder()
-                .id(user.getId())
-                .fullName(user.getFullName())
-                .email(user.getEmail())
-                .role(roleName)
-                .createdAt(user.getCreatedAt())
-                .build();
-    }
+		if (dto.email() != null && !dto.email().equalsIgnoreCase(existingUser.getEmail())) {
+			if (userRepo.existsByEmail(dto.email())) {
+				throw new ConflictException("Another user with that email exists");
+			}
 
+			existingUser.setEmail(dto.email());
+
+			AuthUser authUser = existingUser.getAuthUser();
+			if (authUser != null) {
+				authUser.setEmail(dto.email());
+				authUserRepository.save(authUser);
+
+				emailService.sendAccountUpdateNotification(dto.email(), oldEmail, existingUser.getFullName());
+			}
+		}
+
+		if (!oldFullName.equals(existingUser.getFullName())) {
+			AuthUser authUser = existingUser.getAuthUser();
+			if (authUser != null) {
+				emailService.sendAccountUpdateNotification(existingUser.getEmail(), existingUser.getEmail(),
+						existingUser.getFullName());
+			}
+		}
+
+		userRepo.save(existingUser);
+
+		return ApiResponse.<UpdateUserDto>builder().message("User updated successfully").success(true).data(dto)
+				.build();
+	}
+
+	@Override
+	@Transactional
+	public ApiResponse<String> deleteUserById(Long id) {
+		User user = userRepo.findById(id)
+				.orElseThrow(() -> new ResourceNotFoundException("User not found with id " + id));
+		AuthUser authUser = user.getAuthUser();
+		if (authUser != null) {
+			authUser.setEnabled(false);
+			authUserRepository.save(authUser);
+			emailService.sendAccountDeactivationEmail(authUser.getEmail(), user.getFullName());
+		}
+		user.setActive(false);
+		userRepo.save(user);
+
+		return ApiResponse.<String>builder().message("User deleted successfully").success(true).data(null).build();
+	}
+
+	public UserDto mapToDto(User user) {
+		String roleName = null;
+		if (user.getAuthUser() != null && user.getAuthUser().getRoles() != null
+				&& !user.getAuthUser().getRoles().isEmpty()) {
+
+			roleName = user.getAuthUser().getRoles().iterator().next().getName();
+		}
+
+		return UserDto.builder().id(user.getId()).fullName(user.getFullName()).email(user.getEmail()).role(roleName)
+				.createdAt(user.getCreatedAt()).status(user.isActive() ? "active" : "inactive").build();
+	}
 
 }

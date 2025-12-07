@@ -17,5 +17,6 @@ public interface AuthUserService {
     AuthUser getUserById(Long id);
     
     ApiResponse<?> changePassword(Long userId,ChangePasswordDto dto);
+    String resetPasswordForUser(AuthUser user, String fullName);
 
 }

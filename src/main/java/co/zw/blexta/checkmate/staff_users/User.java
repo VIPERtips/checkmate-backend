@@ -28,11 +28,12 @@ public class User {
     private String email;
     @CreationTimestamp
     private LocalDateTime createdAt;
-    @OneToOne(cascade = CascadeType.ALL)
+    @OneToOne
     @JoinColumn(name = "auth_user_id")
     private AuthUser authUser;
 
     @OneToMany(mappedBy = "createdBy", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<AssetCode> assetCodes;
-
+    private boolean active = true;
+    
 }
