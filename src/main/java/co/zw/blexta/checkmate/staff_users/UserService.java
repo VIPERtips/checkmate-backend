@@ -8,14 +8,17 @@ import co.zw.blexta.checkmate.common.response.ApiResponse;
 import java.util.List;
 
 public interface UserService {
-    User findById(Long id);
-    User getUserByEmail(String email);
-    List<UserDto> getAllUsers();
-    UserDto mapToDto(User user);
+	User findById(Long id);
 
+	User getUserByEmail(String email);
 
+	List<UserDto> getUsersByStatus(String status);
 
-    ApiResponse<String> createUser(RegisterUserDto dto);
-    ApiResponse<UpdateUserDto> updateUser(UpdateUserDto dto, Long id);
-    ApiResponse<String> deleteUserById(Long id);
+	UserDto mapToDto(User user);
+
+	ApiResponse<String> createUser(RegisterUserDto dto);
+
+	ApiResponse<UpdateUserDto> updateUser(UpdateUserDto dto, Long id);
+
+	ApiResponse<String> deleteUserById(Long id);
 }

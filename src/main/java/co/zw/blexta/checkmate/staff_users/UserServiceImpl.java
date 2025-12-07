@@ -37,10 +37,29 @@ public class UserServiceImpl implements UserService {
 				.orElseThrow(() -> new ResourceNotFoundException("User not found with email " + email));
 	}
 
-	@Override
-	public List<UserDto> getAllUsers() {
-		return userRepo.findAll().stream().map(this::mapToDto).toList();
+	public List<UserDto> getUsersByStatus(String status) {
+
+	    List<User> users;
+
+	    switch (status.toLowerCase()) {
+	        case "inactive":
+	            users = userRepo.findByActive(false);
+	            break;
+
+	        case "all":
+	            users = userRepo.findAll();
+	            break;
+
+	        default:
+	            users = userRepo.findByActive(true);
+	            break;
+	    }
+
+	    return users.stream()
+	            .map(this::mapToDto)
+	            .toList();
 	}
+
 
 	@Override
 	@Transactional
