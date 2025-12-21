@@ -3,9 +3,11 @@ package co.zw.blexta.checkmate.staff_users;
 
 import co.zw.blexta.checkmate.assset_code.AssetCode;
 import co.zw.blexta.checkmate.auth.users.AuthUser;
+import co.zw.blexta.checkmate.company.Company;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
+import lombok.Builder.Default;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import org.hibernate.annotations.CreationTimestamp;
@@ -34,6 +36,11 @@ public class User {
 
     @OneToMany(mappedBy = "createdBy", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<AssetCode> assetCodes;
+    @Builder.Default
     private boolean active = true;
+    @ManyToOne
+    @JoinColumn(name = "company_id", nullable = true)
+    private Company company;
+
     
 }

@@ -36,6 +36,15 @@ public class AuthController {
     	Long userId = sessionUtil.extractUserId(authHeader);
     	return authUserService.changePassword(userId, dto);
     }
+    
+    @PostMapping("/assign-role")
+    public ApiResponse<?> assignRole(
+            @RequestParam Long userId,
+            @RequestParam Long roleId
+    ) {
+        return authUserService.assignRoleToUser(userId, roleId);
+    }
+
 
     @PostMapping("/me")
     public ApiResponse<?> me(@RequestHeader("Authorization") String authHeader) {

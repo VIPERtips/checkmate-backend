@@ -197,5 +197,33 @@ public class AuthUserServiceImpl implements AuthUserService {
 
 		return tempPassword;
 	}
+	
+	@Override
+	@Transactional
+	public ApiResponse<?> assignRoleToUser(Long userId, Long roleId) {
+
+	    AuthUser user = userRepo.findById(userId)
+	            .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+
+	    AuthRole role = roleRepo.findById(roleId)
+	            .orElseThrow(() -> new ResourceNotFoundException("Role not found"));
+
+	    if (user.getRoles().contains(role)) {
+	        throw new BadRequestException("User already has this role");
+	    }
+
+	    user.getRoles().add(role);
+	    userRepo.save(user);
+
+	    return ApiResponse.builder()
+	            .success(true)
+	            .message("Role assigned successfully")
+	            .data(Map.of(
+	                    "userId", user.getId(),
+	                    "role", role.getName()
+	            ))
+	            .build();
+	}
+
 
 }

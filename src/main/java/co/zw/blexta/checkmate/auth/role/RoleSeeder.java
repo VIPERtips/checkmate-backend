@@ -13,7 +13,8 @@ public class RoleSeeder implements CommandLineRunner {
 
     @Override
     public void run(String... args) {
-        seedRole("ADMIN", "Administrator role with full permissions");
+    	seedRole("SUPERADMIN", "Overall access to the system");
+        seedRole("ADMIN", "Administrator role with full permissions for company");
         seedRole("IT", "IT role with technical permissions");
     }
 

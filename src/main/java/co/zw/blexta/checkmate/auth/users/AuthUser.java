@@ -32,9 +32,13 @@ public class AuthUser implements UserDetails {
     @Column(nullable = false)
     private String password;
 
+    @Builder.Default
     private boolean enabled = true;
+    @Builder.Default
     private boolean accountNonLocked = true;
+    @Builder.Default
     private boolean credentialsNonExpired = true;
+    @Builder.Default
     private boolean accountNonExpired = true;
 
     @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
