@@ -225,5 +225,31 @@ public class AuthUserServiceImpl implements AuthUserService {
 	            .build();
 	}
 
+	@Override
+	@Transactional
+	public ApiResponse<?> removeRoleFromUser(Long userId, Long roleId) {
+
+	    AuthUser user = userRepo.findById(userId)
+	            .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+
+	    AuthRole role = roleRepo.findById(roleId)
+	            .orElseThrow(() -> new ResourceNotFoundException("Role not found"));
+
+	    if (!user.getRoles().contains(role)) {
+	        throw new BadRequestException("User does not have this role");
+	    }
+
+	    user.getRoles().remove(role);
+	    userRepo.save(user);
+
+	    return ApiResponse.builder()
+	            .success(true)
+	            .message("Role removed successfully")
+	            .data(Map.of(
+	                    "userId", user.getId(),
+	                    "role", role.getName()
+	            ))
+	            .build();
+	}
 
 }

@@ -19,5 +19,5 @@ public interface AuthUserService {
     ApiResponse<?> changePassword(Long userId,ChangePasswordDto dto);
     String resetPasswordForUser(AuthUser user, String fullName);
     ApiResponse<?> assignRoleToUser(Long userId, Long roleId);
-
+    ApiResponse<?> removeRoleFromUser(Long userId, Long roleId);
 }

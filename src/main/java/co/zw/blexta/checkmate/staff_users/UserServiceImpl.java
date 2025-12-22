@@ -171,15 +171,25 @@ public class UserServiceImpl implements UserService {
 	}
 
 	public UserDto mapToDto(User user) {
-		String roleName = null;
-		if (user.getAuthUser() != null && user.getAuthUser().getRoles() != null
-				&& !user.getAuthUser().getRoles().isEmpty()) {
 
-			roleName = user.getAuthUser().getRoles().iterator().next().getName();
+		List<String> roles = List.of();
+
+		if (user.getAuthUser() != null && user.getAuthUser().getRoles() != null) {
+			roles = user.getAuthUser().getRoles()
+					.stream()
+					.map(r -> r.getName())
+					.toList();
 		}
 
-		return UserDto.builder().id(user.getId()).fullName(user.getFullName()).email(user.getEmail()).role(roleName)
-				.createdAt(user.getCreatedAt()).status(user.isActive() ? "active" : "inactive").build();
+		return UserDto.builder()
+				.id(user.getId())
+				.fullName(user.getFullName())
+				.email(user.getEmail())
+				.roles(roles)
+				.createdAt(user.getCreatedAt())
+				.status(user.isActive() ? "active" : "inactive")
+				.build();
 	}
+
 
 }

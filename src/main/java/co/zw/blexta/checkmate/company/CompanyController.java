@@ -48,7 +48,7 @@ public class CompanyController {
                 .build();
     }
 
-    @GetMapping
+    @GetMapping("/all")
     public ApiResponse<List<CompanyResponseDto>> getAllCompanies() {
         List<CompanyResponseDto> response = companyService.getAllCompanies();
         return ApiResponse.<List<CompanyResponseDto>>builder()
@@ -57,6 +57,22 @@ public class CompanyController {
                 .data(response)
                 .build();
     }
+    
+    @GetMapping("/mine")
+    public ApiResponse<CompanyResponseDto> getMyCompany(
+            @RequestHeader("Authorization") String authHeader) {
+
+        Long userId = sessionUtil.extractUserId(authHeader);
+
+        CompanyResponseDto response = companyService.getMine(userId);
+
+        return ApiResponse.<CompanyResponseDto>builder()
+                .success(true)
+                .message("Company retrieved successfully")
+                .data(response)
+                .build();
+    }
+
 
     @PutMapping("/{id}")
     public ApiResponse<CompanyResponseDto> updateCompany(@PathVariable Long id, @RequestBody CompanyRequestDto request) {

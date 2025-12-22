@@ -59,32 +59,39 @@ public CompanyResponseDto addCompanyBySuperAdmin(CompanyRequestDto request, Long
 
     @Override
     public CompanyResponseDto createCompany(CompanyRequestDto request, Long userId) {
-        boolean exists = companyRepository.existsByName(request.name());
-        if (exists) {
+        if (companyRepository.existsByName(request.name())) {
             throw new ConflictException("Company already exists by name: " + request.name());
         }
-        User  creator = userRepository.findById(userId)
-        		.orElseThrow(
-        				()-> new ResourceNotFoundException("Staff user not found"));
-        
-        
+     
+        User creator = userRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("Staff user not found"));
+
         Company company = Company.builder()
                 .name(request.name())
                 .email(request.email())
                 .phoneNumber(request.phoneNumber())
                 .address(request.address())
                 .status(CompanyStatus.PENDING_SETUP)
-                .plan(PlanType.FREE) 
+                .plan(PlanType.FREE)
                 .build();
+
+      
+        companyRepository.save(company);
+
         
-        if (!creator.getAuthUser().getRoles().stream().noneMatch(r -> r.getName().equals("SUPERADMIN"))) {
+        boolean isAdmin = creator.getAuthUser()
+                .getRoles()
+                .stream()
+                .anyMatch(r -> r.getName().equals("ADMIN"));
+
+        if (isAdmin) {
             creator.setCompany(company);
             userRepository.save(creator);
         }
 
-        companyRepository.save(company);
         return mapToDto(company);
     }
+
 
     @Override
     public CompanyResponseDto updateCompany(Long companyId, CompanyRequestDto request) {
@@ -130,4 +137,30 @@ public CompanyResponseDto addCompanyBySuperAdmin(CompanyRequestDto request, Long
                 .plan(company.getPlan() != null ? company.getPlan().name() : null)
                 .build();
     }
+
+
+    @Override
+    public CompanyResponseDto getMine(Long userId) {
+
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("Staff user not found"));
+
+        boolean isAdmin = user.getAuthUser()
+                .getRoles()
+                .stream()
+                .anyMatch(r -> r.getName().equals("ADMIN"));
+
+        if (!isAdmin) {
+            throw new ConflictException("Only admins can access company details");
+        }
+
+        Company company = user.getCompany();
+
+        if (company == null) {
+            throw new ResourceNotFoundException("User is not assigned to any company");
+        }
+
+        return mapToDto(company);
+    }
+
 }

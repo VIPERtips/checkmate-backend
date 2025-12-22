@@ -12,6 +12,7 @@ public interface CompanyService {
     CompanyResponseDto addCompanyBySuperAdmin(CompanyRequestDto request, Long userId);
     CompanyResponseDto updateCompany(Long companyId, CompanyRequestDto request);
     CompanyResponseDto getCompany(Long companyId);
+    CompanyResponseDto getMine(Long userId);
     List<CompanyResponseDto> getAllCompanies();
     void deleteCompany(Long companyId);
 }

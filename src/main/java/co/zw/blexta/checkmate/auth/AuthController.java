@@ -44,6 +44,15 @@ public class AuthController {
     ) {
         return authUserService.assignRoleToUser(userId, roleId);
     }
+    
+    @PostMapping("/remove-role")
+    public ApiResponse<?> removeRole(
+            @RequestParam Long userId,
+            @RequestParam Long roleId
+    ) {
+        return authUserService.removeRoleFromUser(userId, roleId);
+    }
+
 
 
     @PostMapping("/me")
