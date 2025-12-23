@@ -15,6 +15,7 @@ import co.zw.blexta.checkmate.common.dto.PaymentIntentResponseDto;
 import co.zw.blexta.checkmate.common.exception.ResourceNotFoundException;
 import co.zw.blexta.checkmate.company.Company;
 import co.zw.blexta.checkmate.company.CompanyRepository;
+import co.zw.blexta.checkmate.company.PlanType;
 import co.zw.blexta.checkmate.payment.Payment;
 import co.zw.blexta.checkmate.payment.PaymentRepository;
 import lombok.RequiredArgsConstructor;
@@ -39,6 +40,7 @@ public class PaymentServiceImpl implements PaymentIntentService {
         PaymentIntent intent = PaymentIntent.builder()
                 .amount((long) request.getAmount())
                 .currency(request.getCurrency())
+                .planId(request.getPlanId())
                 .status(PaymentIntentStatus.INITIATED)
                 .createdBy(company)
                 .clientReference(clientReference)
@@ -117,6 +119,8 @@ public PaymentIntentStatus checkPaymentStatus(String clientReference) throws Exc
                 .build();
 
         paymentRepository.save(payment);
+        upgradeCompanyPlan(intent.getCreatedBy(), intent.getPlanId());
+
     } else if ("FAILED".equalsIgnoreCase(status)) {
         intent.setStatus(PaymentIntentStatus.FAILED);
         paymentIntentRepository.save(intent);
@@ -128,5 +132,26 @@ public PaymentIntentStatus checkPaymentStatus(String clientReference) throws Exc
     private LocalDateTime parseOrderDate(String orderDate) {
         return LocalDateTime.parse(orderDate);
     }
+    
+    
+    private void upgradeCompanyPlan(Company company, String planId) {
+        PlanType newPlan;
+        switch (planId.toLowerCase()) {
+            case "starter":
+                newPlan = PlanType.BASIC;
+                break;
+            case "professional":
+                newPlan = PlanType.PRO;
+                break;
+            case "enterprise":
+                newPlan = PlanType.ENTERPRISE; 
+                break;
+            default:
+                newPlan = PlanType.FREE;
+        }
+        company.setPlan(newPlan);
+        companyRepository.save(company);
+    }
+
 
 }

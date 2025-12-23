@@ -29,6 +29,10 @@ public class PaymentIntent {
 
 	@Column(nullable = false)
 	private String currency;
+	
+	@Column(nullable = false)
+	private String planId;
+
 
 	@Enumerated(EnumType.STRING)
 	@Column(nullable = false)

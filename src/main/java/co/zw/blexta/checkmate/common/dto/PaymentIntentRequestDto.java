@@ -10,5 +10,6 @@ public class PaymentIntentRequestDto {
     private Long companyId;
     private double amount;
     private String currency;
+    private String planId;
 }
 
