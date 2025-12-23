@@ -67,7 +67,7 @@ public class PaymentServiceImpl implements PaymentIntentService {
             + "\"channel\":\"AUTOMATED\","
             + "\"clientReference\":\"" + intent.getClientReference() + "\","
             + "\"currency\":\"" + intent.getCurrency() + "\","
-            + "\"customerCharged\":true,"
+            + "\"customerCharged\":false,"
             + "\"customerPhoneNumber\":\"0789773911\","
             + "\"description\":\"Payment for Checkmate Subscription\","
             + "\"multiplePayments\":true,"

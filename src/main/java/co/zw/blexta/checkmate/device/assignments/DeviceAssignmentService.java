@@ -6,12 +6,33 @@ import java.util.List;
 
 public interface DeviceAssignmentService {
 
-    DeviceAssignmentDto assignDevice(Long deviceId, Long assignedToUserId, Long assignedByUserId);
+    DeviceAssignmentDto assignDevice(
+            Long deviceId,
+            Long assignedToUserId,
+            Long assignedByUserId
+    );
 
-    DeviceAssignmentDto checkInDevice(Long deviceId, Long performedByUserId);
-    List<DeviceAssignmentDto> getRecentAssignments(int limit);
-    List<DeviceAssignmentDto> getDeviceHistory(Long deviceId);
-    List<DeviceAssignmentDto> getAssignedDevices();
-    DeviceAssignmentDto requestReturnDevice(Long deviceId, Long requestedByUserId);
+    DeviceAssignmentDto checkInDevice(
+            Long deviceId,
+            Long performedByUserId
+    );
 
+    List<DeviceAssignmentDto> getRecentAssignments(
+            int limit,
+            Long userId
+    );
+
+    List<DeviceAssignmentDto> getDeviceHistory(
+            Long deviceId,
+            Long userId
+    );
+
+    List<DeviceAssignmentDto> getAssignedDevices(
+            Long userId
+    );
+
+    DeviceAssignmentDto requestReturnDevice(
+            Long deviceId,
+            Long requestedByUserId
+    );
 }

@@ -9,13 +9,77 @@ import java.util.List;
 import java.util.Optional;
 
 public interface DeviceAssignmentRepository extends JpaRepository<DeviceAssignment, Long> {
-    @Query(value = "SELECT * FROM device_assignment ORDER BY id DESC LIMIT ?1", nativeQuery = true)
+
+    @Query(value = """
+        SELECT * FROM device_assignment
+        ORDER BY id DESC
+        LIMIT ?1
+    """, nativeQuery = true)
     List<DeviceAssignment> findTopByOrderByIdDesc(int limit);
 
-    @Query(value = "SELECT * FROM device_assignment WHERE device_id = :deviceId ORDER BY assignment_date DESC LIMIT 1", nativeQuery = true)
-    Optional<DeviceAssignment> findLatestByDeviceId(Long deviceId);
+    @Query(value = """
+        SELECT * FROM device_assignment
+        WHERE device_id = :deviceId
+        ORDER BY assignment_date DESC
+        LIMIT 1
+    """, nativeQuery = true)
+    Optional<DeviceAssignment> findLatestByDeviceId(@Param("deviceId") Long deviceId);
 
-    Long countByAssignedTo_Id(Long userId);
+    List<DeviceAssignment> findByDeviceOrderByAssignmentDateDesc(Device device);
+
+    @Query("""
+        SELECT da FROM DeviceAssignment da
+        WHERE da.device.status = 'assigned'
+        AND da.assignmentDate = (
+            SELECT MAX(sub.assignmentDate)
+            FROM DeviceAssignment sub
+            WHERE sub.device = da.device
+        )
+    """)
+    List<DeviceAssignment> findCurrentlyAssignedDevices();
+
+    @Query("""
+        SELECT da FROM DeviceAssignment da
+        WHERE da.company.id = :companyId
+        ORDER BY da.id DESC
+    """)
+    List<DeviceAssignment> findRecentByCompanyId(@Param("companyId") Long companyId);
+
+    @Query("""
+        SELECT da FROM DeviceAssignment da
+        WHERE da.company.id = :companyId
+        AND da.device.status = 'assigned'
+        AND da.assignmentDate = (
+            SELECT MAX(sub.assignmentDate)
+            FROM DeviceAssignment sub
+            WHERE sub.device = da.device
+        )
+    """)
+    List<DeviceAssignment> findCurrentlyAssignedDevicesByCompanyId(@Param("companyId") Long companyId);
+
+    @Query(value = """
+        SELECT DATE_FORMAT(assignment_date, '%Y-%m') AS month,
+               COUNT(*) AS count
+        FROM device_assignment
+        WHERE assigned_to_id IS NOT NULL
+        AND company_id = :companyId
+        GROUP BY DATE_FORMAT(assignment_date, '%Y-%m')
+        ORDER BY month ASC
+    """, nativeQuery = true)
+    List<Object[]> getMonthlyCheckoutsByCompanyId(@Param("companyId") Long companyId);
+
+    @Query(value = """
+        SELECT DATE_FORMAT(assignment_date, '%Y-%m') AS month,
+               COUNT(*) AS count
+        FROM device_assignment
+        WHERE assigned_to_id IS NULL
+        AND company_id = :companyId
+        GROUP BY DATE_FORMAT(assignment_date, '%Y-%m')
+        ORDER BY month ASC
+    """, nativeQuery = true)
+    List<Object[]> getMonthlyCheckinsByCompanyId(@Param("companyId") Long companyId);
+    
+    
     @Query(value = """
     	    SELECT DATE_FORMAT(assignment_date, '%Y-%m') AS month,
     	           COUNT(*) AS count
@@ -38,22 +102,5 @@ public interface DeviceAssignmentRepository extends JpaRepository<DeviceAssignme
     	""", nativeQuery = true)
     	List<Object[]> getMonthlyCheckins();
 
-    List<DeviceAssignment> findByDeviceOrderByAssignmentDateDesc(Device device);
-
-    @Query("""
-    SELECT da FROM DeviceAssignment da
-    WHERE da.device.status = 'assigned' 
-    AND da.assignmentDate = (
-        SELECT MAX(sub.assignmentDate) 
-        FROM DeviceAssignment sub 
-        WHERE sub.device = da.device
-    )
-""")
-    List<DeviceAssignment> findCurrentlyAssignedDevices();
-
-	long countByAssignedTo_AuthUser_Id(Long id);
-
-	List<Object[]> getMonthlyCheckoutsByCompanyId(Long companyId);
-
-	List<Object[]> getMonthlyCheckinsByCompanyId(Long companyId);
+		long countByAssignedTo_AuthUser_Id(Long id);
 }

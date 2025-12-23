@@ -14,5 +14,5 @@ public interface DeviceRepository extends JpaRepository<Device,Long> {
     List<Device> findAllByCompanyId(Long companyId);
 	long countByCompanyId(Long companyId);
 	long countByStatusAndCompanyId(String string, Long companyId);
-
+	 
 }

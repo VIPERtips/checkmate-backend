@@ -14,17 +14,19 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 @Builder
 @Entity
+@Table(name = "devices")
 public class Device {
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
     @OneToOne(fetch = FetchType.EAGER)
-    @JoinColumn(name = "asset_code_id", referencedColumnName = "id")
+    @JoinColumn(name = "asset_code_id", referencedColumnName = "id", nullable = false)
     private AssetCode assetCode;
 
     @ManyToOne
-    @JoinColumn(name = "category_id", referencedColumnName = "id")
+    @JoinColumn(name = "category_id", nullable = false)
     private Category category;
 
     private String name;

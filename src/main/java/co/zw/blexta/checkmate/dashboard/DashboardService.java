@@ -56,7 +56,7 @@ public class DashboardService {
         return DashboardStatsDto.builder()
                 .totalGadgets(totalGadgets)
                 .activeUsers(activeUsers)
-                .upcomingEvents(0L) // you can add company filtering if needed
+                .upcomingEvents(0L) 
                 .utilizationRate(utilizationRate)
                 .myGadgets(myGadgets)
                 .build();

@@ -4,6 +4,6 @@ public record DeviceCreateDto(
         String name,
         String serialNumber,
         Long categoryId,
-        Long assetCodeId,
+        //Long assetCodeId,
         String status
 ) {}

@@ -10,17 +10,26 @@ import co.zw.blexta.checkmate.staff_users.User;
 import co.zw.blexta.checkmate.staff_users.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Service
 @RequiredArgsConstructor
+@Transactional
 public class DeviceAssignmentServiceImpl implements DeviceAssignmentService {
 
     private final DeviceAssignmentRepository assignmentRepository;
     private final DeviceRepository deviceRepository;
     private final UserRepository userRepository;
     private final EmailService emailService;
+
+    private boolean isSuperAdmin(User user) {
+        return user.getAuthUser().getRoles()
+                .stream()
+                .anyMatch(r -> r.getName().equals("SUPERADMIN"));
+    }
 
     @Override
     public DeviceAssignmentDto assignDevice(Long deviceId, Long assignedToUserId, Long assignedByUserId) {
@@ -37,19 +46,20 @@ public class DeviceAssignmentServiceImpl implements DeviceAssignmentService {
         if (!device.getStatus().equalsIgnoreCase("available"))
             throw new BadRequestException("Device is not available");
 
+        
         device.setStatus("assigned");
-        deviceRepository.save(device);
+        deviceRepository.saveAndFlush(device); 
 
         DeviceAssignment assignment = DeviceAssignment.builder()
-                .device(device)
+                .device(device) 
                 .assignedTo(assignedTo)
-                .company(assignedBy.getCompany()) 
                 .assignedBy(assignedBy)
+                .company(device.getCompany())
                 .build();
 
-        assignment = assignmentRepository.save(assignment);
-        return toDto(assignment);
+        return toDto(assignmentRepository.saveAndFlush(assignment));
     }
+
 
     @Override
     public DeviceAssignmentDto checkInDevice(Long deviceId, Long performedByUserId) {
@@ -64,31 +74,59 @@ public class DeviceAssignmentServiceImpl implements DeviceAssignmentService {
             throw new BadRequestException("Device is not currently assigned");
 
         device.setStatus("available");
-        deviceRepository.save(device);
+        deviceRepository.saveAndFlush(device);
 
         DeviceAssignment assignment = DeviceAssignment.builder()
                 .device(device)
-                .assignedTo(null)
                 .assignedBy(checker)
-                .company(checker.getCompany()) 
+                .company(device.getCompany())
                 .build();
 
-        assignment = assignmentRepository.save(assignment);
-        return toDto(assignment);
+        return toDto(assignmentRepository.saveAndFlush(assignment));
     }
 
+
     @Override
-    public List<DeviceAssignmentDto> getRecentAssignments(int limit) {
-        return assignmentRepository.findTopByOrderByIdDesc(limit)
-                .stream()
+    public List<DeviceAssignmentDto> getRecentAssignments(int limit, Long userId) {
+
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+
+        List<DeviceAssignment> assignments;
+
+        if (isSuperAdmin(user)) {
+            assignments = assignmentRepository.findTopByOrderByIdDesc(limit);
+        } else {
+            if (user.getCompany() == null)
+                throw new BadRequestException("User has no company");
+
+            assignments = assignmentRepository
+                    .findRecentByCompanyId(user.getCompany().getId())
+                    .stream()
+                    .limit(limit)
+                    .toList();
+        }
+
+        return assignments.stream()
                 .map(this::toDto)
                 .toList();
     }
 
     @Override
-    public List<DeviceAssignmentDto> getDeviceHistory(Long deviceId) {
+    public List<DeviceAssignmentDto> getDeviceHistory(Long deviceId, Long userId) {
+
         Device device = deviceRepository.findById(deviceId)
                 .orElseThrow(() -> new ResourceNotFoundException("Device not found"));
+
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+
+        if (!isSuperAdmin(user)) {
+            if (user.getCompany() == null ||
+                !user.getCompany().getId().equals(device.getCompany().getId())) {
+                throw new BadRequestException("Access denied");
+            }
+        }
 
         return assignmentRepository.findByDeviceOrderByAssignmentDateDesc(device)
                 .stream()
@@ -97,9 +135,24 @@ public class DeviceAssignmentServiceImpl implements DeviceAssignmentService {
     }
 
     @Override
-    public List<DeviceAssignmentDto> getAssignedDevices() {
-        return assignmentRepository.findCurrentlyAssignedDevices()
-                .stream()
+    public List<DeviceAssignmentDto> getAssignedDevices(Long userId) {
+
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+
+        List<DeviceAssignment> assignments;
+
+        if (isSuperAdmin(user)) {
+            assignments = assignmentRepository.findCurrentlyAssignedDevices();
+        } else {
+            if (user.getCompany() == null)
+                throw new BadRequestException("User has no company");
+
+            assignments = assignmentRepository
+                    .findCurrentlyAssignedDevicesByCompanyId(user.getCompany().getId());
+        }
+
+        return assignments.stream()
                 .map(this::toDto)
                 .toList();
     }
@@ -107,20 +160,23 @@ public class DeviceAssignmentServiceImpl implements DeviceAssignmentService {
     @Override
     public DeviceAssignmentDto requestReturnDevice(Long deviceId, Long requestedByUserId) {
 
-        Device device = deviceRepository.findById(deviceId)
-                .orElseThrow(() -> new ResourceNotFoundException("Device not found"));
+        DeviceAssignment assignment = assignmentRepository.findLatestByDeviceId(deviceId)
+                .orElseThrow(() -> new BadRequestException("No active assignment found"));
 
         User requester = userRepository.findById(requestedByUserId)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
 
-        DeviceAssignment assignment = assignmentRepository.findLatestByDeviceId(deviceId)
-                .orElseThrow(() -> new BadRequestException("No active assignment found for this device"));
+        if (!isSuperAdmin(requester)) {
+            if (requester.getCompany() == null ||
+                !requester.getCompany().getId().equals(assignment.getCompany().getId())) {
+                throw new BadRequestException("Access denied");
+            }
+        }
 
         assignment.setReturnRequestedBy(requester);
-        assignment.setReturnRequestedAt(java.time.LocalDateTime.now());
+        assignment.setReturnRequestedAt(LocalDateTime.now());
         assignmentRepository.save(assignment);
 
-        // Send email to assigned user
         if (assignment.getAssignedTo() != null) {
             emailService.sendReminder(
                     assignment.getAssignedTo().getEmail(),
@@ -133,21 +189,28 @@ public class DeviceAssignmentServiceImpl implements DeviceAssignmentService {
         return toDto(assignment);
     }
 
-
     private DeviceAssignmentDto toDto(DeviceAssignment assignment) {
-        boolean isAssigned = assignment.getAssignedTo() != null;
+        boolean assigned = assignment.getAssignedTo() != null;
 
         return DeviceAssignmentDto.builder()
                 .id(assignment.getId())
                 .deviceId(assignment.getDevice().getId())
                 .deviceName(assignment.getDevice().getName())
-                .assignedToUserId(isAssigned ? assignment.getAssignedTo().getId() : null)
-                .assignedToFullName(isAssigned ? assignment.getAssignedTo().getFullName() : null)
-                .assignedByUserId(assignment.getAssignedBy() != null ? assignment.getAssignedBy().getId() : null)
-                .assignedByFullName(assignment.getAssignedBy() != null ? assignment.getAssignedBy().getFullName() : null)
+                .assignedToUserId(assigned ? assignment.getAssignedTo().getId() : null)
+                .assignedToFullName(assigned ? assignment.getAssignedTo().getFullName() : null)
+                .assignedByUserId(
+                        assignment.getAssignedBy() != null
+                                ? assignment.getAssignedBy().getId()
+                                : null
+                )
+                .assignedByFullName(
+                        assignment.getAssignedBy() != null
+                                ? assignment.getAssignedBy().getFullName()
+                                : null
+                )
                 .status(assignment.getDevice().getStatus())
                 .assignedAt(assignment.getAssignmentDate())
-                .action(isAssigned ? "checked out" : "checked in")
+                .action(assigned ? "checked out" : "checked in")
                 .build();
     }
 }
