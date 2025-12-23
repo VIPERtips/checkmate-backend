@@ -24,51 +24,71 @@ public class DashboardService {
     private final UserRepository userRepository;
 
     public DashboardStatsDto getStats(AuthUser authUser) {
-        boolean isAdmin = authUser.getRoles().stream().anyMatch(r -> r.getName().equalsIgnoreCase("admin"));
-        boolean isManager = authUser.getRoles().stream().anyMatch(r -> r.getName().equalsIgnoreCase("manager"));
+        boolean isSuperAdmin = authUser.getRoles().stream()
+                .anyMatch(r -> "SUPERADMIN".equalsIgnoreCase(r.getName()));
 
-        long totalGadgets = deviceRepository.count();
-        long activeUsers = userRepository.count();
-        long upcomingEvents = 0;
-        long assignedCount = deviceRepository.countByStatus("assigned");
-        double utilizationRate = totalGadgets > 0 ? (assignedCount * 100.0 / totalGadgets) : 0;
-
-        Long myGadgets = null;
-        if (!isAdmin && !isManager) {
-            myGadgets = Optional.ofNullable(authUser.getId())
-                    .map(id -> {
-                        Long count = assignmentRepository.countByAssignedTo_Id(id);
-                        return count != null ? count : 0L;
-                    })
-                    .orElse(0L);
+        Long companyId = null;
+        if (!isSuperAdmin) {
+            User user = userRepository.findByAuthUser(authUser)
+                    .orElseThrow(() -> new RuntimeException("User not found"));
+            if (user.getCompany() == null) {
+                throw new RuntimeException("User has no company assigned");
+            }
+            companyId = user.getCompany().getId();
         }
 
+        long totalGadgets = isSuperAdmin
+                ? deviceRepository.count()
+                : deviceRepository.countByCompanyId(companyId);
 
+        long activeUsers = isSuperAdmin
+                ? userRepository.count()
+                : userRepository.countByCompanyId(companyId);
+
+        long assignedCount = isSuperAdmin
+                ? deviceRepository.countByStatus("assigned")
+                : deviceRepository.countByStatusAndCompanyId("assigned", companyId);
+
+        double utilizationRate = totalGadgets > 0 ? (assignedCount * 100.0 / totalGadgets) : 0;
+
+        long myGadgets = assignmentRepository.countByAssignedTo_AuthUser_Id(authUser.getId());
 
         return DashboardStatsDto.builder()
-                .totalGadgets(isAdmin || isManager ? totalGadgets : 0L)
-                .activeUsers(isAdmin ? activeUsers : (isManager ? activeUsers : 0L))
-                .upcomingEvents(isAdmin || isManager ? upcomingEvents : 0L)
+                .totalGadgets(totalGadgets)
+                .activeUsers(activeUsers)
+                .upcomingEvents(0L) // you can add company filtering if needed
                 .utilizationRate(utilizationRate)
-                .myGadgets(!isAdmin && !isManager ? myGadgets : 0L)
+                .myGadgets(myGadgets)
                 .build();
-
     }
 
-    public List<MonthlyTrendDto> getGadgetTrends() {
-        List<Object[]> checkouts = assignmentRepository.getMonthlyCheckouts();
-        List<Object[]> checkins = assignmentRepository.getMonthlyCheckins();
+
+    public List<MonthlyTrendDto> getGadgetTrends(AuthUser authUser) {
+        boolean isSuperAdmin = authUser.getRoles().stream()
+                .anyMatch(r -> "SUPERADMIN".equalsIgnoreCase(r.getName()));
+
+        Long companyId = null;
+        if (!isSuperAdmin) {
+            User user = userRepository.findByAuthUser(authUser)
+                    .orElseThrow(() -> new RuntimeException("User not found"));
+            companyId = user.getCompany().getId();
+        }
+
+        List<Object[]> checkouts = isSuperAdmin
+                ? assignmentRepository.getMonthlyCheckouts()
+                : assignmentRepository.getMonthlyCheckoutsByCompanyId(companyId);
+
+        List<Object[]> checkins = isSuperAdmin
+                ? assignmentRepository.getMonthlyCheckins()
+                : assignmentRepository.getMonthlyCheckinsByCompanyId(companyId);
 
         Map<String, MonthlyTrendDto> trends = new LinkedHashMap<>();
 
         if (checkouts != null) {
             for (Object[] row : checkouts) {
                 if (row == null || row.length < 2) continue;
-
-                String raw = row[0] == null ? null : row[0].toString();
-                long count = row[1] == null ? 0L : ((Number) row[1]).longValue();
-                String month = formatMonthSafe(raw);
-
+                String month = formatMonthSafe(row[0].toString());
+                long count = ((Number) row[1]).longValue();
                 trends.put(month, new MonthlyTrendDto(month, count, 0));
             }
         }
@@ -76,11 +96,8 @@ public class DashboardService {
         if (checkins != null) {
             for (Object[] row : checkins) {
                 if (row == null || row.length < 2) continue;
-
-                String raw = row[0] == null ? null : row[0].toString();
-                long count = row[1] == null ? 0L : ((Number) row[1]).longValue();
-                String month = formatMonthSafe(raw);
-
+                String month = formatMonthSafe(row[0].toString());
+                long count = ((Number) row[1]).longValue();
                 trends.compute(month, (k, existing) ->
                         existing == null
                                 ? new MonthlyTrendDto(month, 0, count)
@@ -91,6 +108,7 @@ public class DashboardService {
 
         return new ArrayList<>(trends.values());
     }
+
 
     private String formatMonthSafe(String raw) {
         if (raw == null || raw.isBlank()) {

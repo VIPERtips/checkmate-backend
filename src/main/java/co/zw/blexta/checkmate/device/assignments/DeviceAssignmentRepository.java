@@ -50,4 +50,10 @@ public interface DeviceAssignmentRepository extends JpaRepository<DeviceAssignme
     )
 """)
     List<DeviceAssignment> findCurrentlyAssignedDevices();
+
+	long countByAssignedTo_AuthUser_Id(Long id);
+
+	List<Object[]> getMonthlyCheckoutsByCompanyId(Long companyId);
+
+	List<Object[]> getMonthlyCheckinsByCompanyId(Long companyId);
 }

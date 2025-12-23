@@ -43,6 +43,7 @@ public class DeviceAssignmentServiceImpl implements DeviceAssignmentService {
         DeviceAssignment assignment = DeviceAssignment.builder()
                 .device(device)
                 .assignedTo(assignedTo)
+                .company(assignedBy.getCompany()) 
                 .assignedBy(assignedBy)
                 .build();
 
@@ -69,6 +70,7 @@ public class DeviceAssignmentServiceImpl implements DeviceAssignmentService {
                 .device(device)
                 .assignedTo(null)
                 .assignedBy(checker)
+                .company(checker.getCompany()) 
                 .build();
 
         assignment = assignmentRepository.save(assignment);

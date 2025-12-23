@@ -12,11 +12,11 @@ public interface UserService {
 
 	User getUserByEmail(String email);
 
-	List<UserDto> getUsersByStatus(String status);
+	List<UserDto> getUsersByStatusAndCompany(String status,Long currentUserId);
 
 	UserDto mapToDto(User user);
 
-	ApiResponse<String> createUser(RegisterUserDto dto);
+	ApiResponse<String> createUser(RegisterUserDto dto,Long creatorId);
 
 	ApiResponse<UpdateUserDto> updateUser(UpdateUserDto dto, Long id);
 

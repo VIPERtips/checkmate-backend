@@ -2,6 +2,7 @@ package co.zw.blexta.checkmate.device.assignments;
 
 import co.zw.blexta.checkmate.device.Device;
 import co.zw.blexta.checkmate.staff_users.User;
+import co.zw.blexta.checkmate.company.Company;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -42,4 +43,8 @@ public class DeviceAssignment {
     private User returnRequestedBy;
 
     private LocalDateTime returnRequestedAt;
+
+    @ManyToOne
+    @JoinColumn(name = "company_id", nullable = false)
+    private Company company;
 }

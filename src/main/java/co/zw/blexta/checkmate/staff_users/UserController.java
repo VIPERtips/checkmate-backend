@@ -4,6 +4,7 @@ import co.zw.blexta.checkmate.common.dto.RegisterUserDto;
 import co.zw.blexta.checkmate.common.dto.UpdateUserDto;
 import co.zw.blexta.checkmate.common.dto.UserDto;
 import co.zw.blexta.checkmate.common.response.ApiResponse;
+import co.zw.blexta.checkmate.common.utils.SessionUtil;
 import io.swagger.v3.oas.annotations.Hidden;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -17,11 +18,12 @@ import java.util.List;
 public class UserController {
 
 	private final UserService userService;
+	private final SessionUtil sessionUtil;
 
 	@GetMapping("/{id}")
 	public ResponseEntity<ApiResponse<UserDto>> getById(@PathVariable Long id) {
 		User user = userService.findById(id);
-		UserDto dto = userService.mapToDto(user); // add this mapper to service
+		UserDto dto = userService.mapToDto(user); 
 		ApiResponse<UserDto> response = ApiResponse.<UserDto>builder().message("User fetched successfully")
 				.success(true).data(dto).build();
 		return ResponseEntity.ok(response);
@@ -39,18 +41,26 @@ public class UserController {
 
 	@GetMapping
 	public ResponseEntity<ApiResponse<List<UserDto>>> getAllUsers(
-			@RequestParam(defaultValue = "active") String status) {
-		List<UserDto> users = userService.getUsersByStatus(status);
+	        @RequestParam(defaultValue = "active") String status,
+	        @RequestHeader("Authorization") String authHeader) {
 
-		ApiResponse<List<UserDto>> response = ApiResponse.<List<UserDto>>builder().message("Users fetched successfully")
-				.success(true).data(users).build();
+	    Long currentUserId = sessionUtil.extractUserId(authHeader);
+	    List<UserDto> users = userService.getUsersByStatusAndCompany(status, currentUserId);
 
-		return ResponseEntity.ok(response);
+	    ApiResponse<List<UserDto>> response = ApiResponse.<List<UserDto>>builder()
+	            .message("Users fetched successfully")
+	            .success(true)
+	            .data(users)
+	            .build();
+
+	    return ResponseEntity.ok(response);
 	}
 
+
 	@PostMapping
-	public ApiResponse<String> createUser(@RequestBody RegisterUserDto dto) {
-		return userService.createUser(dto);
+	public ApiResponse<String> createUser(@RequestBody RegisterUserDto dto,@RequestHeader("Authorization") String authHeader) {
+	    Long userId = sessionUtil.extractUserId(authHeader);
+		return userService.createUser(dto,userId);
 	}
 
 	@PutMapping("/{id}")

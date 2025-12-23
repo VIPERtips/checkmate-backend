@@ -28,12 +28,10 @@ public class DashboardController {
         Long userId = sessionUtil.extractUserId(authHeader);
         AuthUser user = authUserService.getUserById(userId);
 
+        DashboardStatsDto stats = dashboardService.getStats(user);
+
         return ResponseEntity.ok(
-                new ApiResponse<>(
-                        "Stats fetched successfully",
-                        true,
-                        dashboardService.getStats(user)
-                )
+                new ApiResponse<>("Stats fetched successfully", true, stats)
         );
     }
 
@@ -42,14 +40,12 @@ public class DashboardController {
             @RequestHeader("Authorization") String authHeader
     ) {
         Long userId = sessionUtil.extractUserId(authHeader);
-        authUserService.getUserById(userId);
+        AuthUser user = authUserService.getUserById(userId);
+
+        List<MonthlyTrendDto> trends = dashboardService.getGadgetTrends(user);
 
         return ResponseEntity.ok(
-                new ApiResponse<>(
-                        "Monthly trends fetched",
-                        true,
-                        dashboardService.getGadgetTrends()
-                )
+                new ApiResponse<>("Monthly trends fetched", true, trends)
         );
     }
 }

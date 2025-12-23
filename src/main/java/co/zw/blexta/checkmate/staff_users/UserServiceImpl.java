@@ -16,6 +16,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -59,54 +60,105 @@ public class UserServiceImpl implements UserService {
 	            .map(this::mapToDto)
 	            .toList();
 	}
+	@Override
+	public List<UserDto> getUsersByStatusAndCompany(String status, Long currentUserId) {
+	    User currentUser = userRepo.findById(currentUserId)
+	            .orElseThrow(() -> new RuntimeException("User not found"));
+
+	    boolean isActive = !"inactive".equalsIgnoreCase(status);
+	    List<User> users;
+
+	    boolean isSuperAdmin = currentUser.getAuthUser().getRoles()
+	            .stream()
+	            .anyMatch(r -> "SUPERADMIN".equals(r.getName()));
+
+	    
+	    if (isSuperAdmin) {
+	        if ("all".equalsIgnoreCase(status)) {
+	            users = userRepo.findAll();
+	        } else {
+	            users = userRepo.findByActive(isActive);
+	        }
+	    } else {
+	        if (currentUser.getCompany() == null) {
+	            throw new BadRequestException("Non-superadmin user has no company assigned");
+	        }
+
+	        Long companyId = currentUser.getCompany().getId();
+
+	        if ("all".equalsIgnoreCase(status)) {
+	            users = userRepo.findAllByActiveAndCompanyId(true, companyId);
+	        } else {
+	            users = userRepo.findAllByActiveAndCompanyId(isActive, companyId);
+	        }
+	    }
+
+	    return users.stream().map(this::mapToDto).collect(Collectors.toList());
+	}
+
 
 
 	@Override
 	@Transactional
-	public ApiResponse<String> createUser(RegisterUserDto dto) {
-		if (dto == null)
-			throw new BadRequestException("Register payload is required");
+	public ApiResponse<String> createUser(RegisterUserDto dto, Long creatorId) {
+	    if (dto == null)
+	        throw new BadRequestException("Register payload is required");
 
-		User existing = userRepo.findByEmail(dto.email()).orElse(null);
+	    User existing = userRepo.findByEmail(dto.email()).orElse(null);
+	    User user;
 
-		if (existing != null && existing.isActive()) {
-			throw new ConflictException("A staff user with that email already exists");
-		}
+	    if (existing != null && existing.isActive()) {
+	        throw new ConflictException("A staff user with that email already exists");
+	    }
 
+	    if (existing != null && !existing.isActive()) {
+	        user = existing;
+	        user.setActive(true);
+	        user.setFullName(dto.fullName());
+	        user.setEmail(dto.email());
+	    } else {
+	        user = User.builder().fullName(dto.fullName()).email(dto.email()).build();
+	    }
 
-		User user;
-		if (existing != null && !existing.isActive()) {
-			user = existing;
-			user.setActive(true);
-			user.setFullName(dto.fullName());
-			user.setEmail(dto.email());
-		} else {
-			user = User.builder().fullName(dto.fullName()).email(dto.email()).build();
-		}
+	    if (dto.createLogin()) {
+	        AuthUser authUser;
+	        if (authUserRepository.existsByEmail(dto.email())) {
+	            authUser = authUserRepository.findByEmail(dto.email()).orElseThrow();
+	            if (!authUser.isEnabled()) {
+	                authUser.setEnabled(true);
+	                authUserService.resetPasswordForUser(authUser, dto.fullName());
+	                authUserRepository.save(authUser);
+	            }
+	        } else {
+	            authUser = authUserService.registerUser(dto.email(), dto.roleId(), dto.fullName());
+	        }
+	        user.setAuthUser(authUser);
+	    }
 
-		if (dto.createLogin()) {
-			AuthUser authUser;
+	
+	    User creator = userRepo.findById(creatorId)
+	            .orElseThrow(() -> new ResourceNotFoundException("Creator not found"));
 
-			if (authUserRepository.existsByEmail(dto.email())) {
-				authUser = authUserRepository.findByEmail(dto.email()).orElseThrow();
+	    boolean isAdmin = creator.getAuthUser().getRoles()
+	            .stream()
+	            .anyMatch(r -> r.getName().equals("ADMIN"));
 
-				if (!authUser.isEnabled()) {
-					authUser.setEnabled(true);
-					authUserService.resetPasswordForUser(authUser, dto.fullName());
-					authUserRepository.save(authUser);
-				}
+	    if (isAdmin) {
+	        if (creator.getCompany() == null)
+	            throw new BadRequestException("Admin creating user has no company assigned");
 
-			} else {
-				authUser = authUserService.registerUser(dto.email(), dto.roleId(), dto.fullName());
-			}
+	        user.setCompany(creator.getCompany());
+	    }
 
-			user.setAuthUser(authUser);
-		}
+	    userRepo.save(user);
 
-		userRepo.save(user);
-
-		return ApiResponse.<String>builder().message("User created successfully").success(true).data(null).build();
+	    return ApiResponse.<String>builder()
+	            .message("User created successfully")
+	            .success(true)
+	            .data(null)
+	            .build();
 	}
+
 
 	@Override
 	@Transactional

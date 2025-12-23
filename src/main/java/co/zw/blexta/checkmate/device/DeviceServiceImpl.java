@@ -9,8 +9,10 @@ import co.zw.blexta.checkmate.common.exception.BadRequestException;
 import co.zw.blexta.checkmate.common.exception.ResourceNotFoundException;
 import co.zw.blexta.checkmate.device.assignments.DeviceAssignment;
 import co.zw.blexta.checkmate.device.assignments.DeviceAssignmentRepository;
-import co.zw.blexta.checkmate.deviceCategories.Category;
-import co.zw.blexta.checkmate.deviceCategories.CategoryRepository;
+import co.zw.blexta.checkmate.device.category.Category;
+import co.zw.blexta.checkmate.device.category.CategoryRepository;
+import co.zw.blexta.checkmate.staff_users.User;
+import co.zw.blexta.checkmate.staff_users.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -24,15 +26,24 @@ public class DeviceServiceImpl  implements  DeviceService{
     private final AssetCodeRepository assetCodeRepository;
     private final CategoryRepository categoryRepository;
     private final DeviceAssignmentRepository assignmentRepository;
+    private final UserRepository userRepository;
 
 
     @Override
-    public DeviceDto registerDevice(DeviceCreateDto dto) {
+    public DeviceDto registerDevice(DeviceCreateDto dto, Long creatorId) {
         AssetCode assetCode = assetCodeRepository.findById(dto.assetCodeId())
                 .orElseThrow(() -> new BadRequestException("Invalid asset code ID"));
 
         Category category = categoryRepository.findById(dto.categoryId())
                 .orElseThrow(() -> new BadRequestException("Invalid category ID"));
+
+        
+        User creator = userRepository.findById(creatorId)
+                .orElseThrow(() -> new ResourceNotFoundException("Creator not found"));
+
+        if (creator.getCompany() == null) {
+            throw new BadRequestException("Creator has no company assigned");
+        }
 
         Device device = Device.builder()
                 .name(dto.name())
@@ -40,6 +51,7 @@ public class DeviceServiceImpl  implements  DeviceService{
                 .status(dto.status())
                 .assetCode(assetCode)
                 .category(category)
+                .company(creator.getCompany()) 
                 .build();
 
         Device saved = deviceRepository.save(device);
@@ -84,6 +96,37 @@ public class DeviceServiceImpl  implements  DeviceService{
                 })
                 .toList();
     }
+    
+    @Override
+    public List<DeviceDto> getAllDevicesForUser(Long userId) {
+        User currentUser = userRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+
+        boolean isSuperAdmin = currentUser.getAuthUser().getRoles()
+                .stream()
+                .anyMatch(r -> "SUPERADMIN".equals(r.getName()));
+
+        List<Device> devices;
+
+        if (isSuperAdmin) {
+            devices = deviceRepository.findAll();
+        } else {
+            if (currentUser.getCompany() == null) {
+                throw new BadRequestException("User has no company assigned");
+            }
+            devices = deviceRepository.findAllByCompanyId(currentUser.getCompany().getId());
+        }
+
+        return devices.stream()
+                .map(device -> {
+                    DeviceAssignment latestAssignment = assignmentRepository
+                            .findLatestByDeviceId(device.getId())
+                            .orElse(null);
+                    return new DeviceDto(device, latestAssignment);
+                })
+                .collect(Collectors.toList());
+    }
+
 
 
     @Override

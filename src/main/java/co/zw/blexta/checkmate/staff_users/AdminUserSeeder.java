@@ -35,7 +35,7 @@ public class AdminUserSeeder implements CommandLineRunner {
                     true,  
                     1L    
             );
-            userService.createUser(dto);
+            userService.createUser(dto,null);
             System.out.println("Admin user seeded successfully.");
         }
     }

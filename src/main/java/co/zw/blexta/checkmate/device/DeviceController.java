@@ -24,14 +24,20 @@ public class DeviceController {
     private final SessionUtil sessionUtil;
 
     @PostMapping
-    public ApiResponse<DeviceDto> createDevice(@RequestBody DeviceCreateDto dto) {
-        DeviceDto device = deviceService.registerDevice(dto);
+    public ApiResponse<DeviceDto> createDevice(
+            @RequestHeader("Authorization") String authHeader,
+            @RequestBody DeviceCreateDto dto) {
+
+        Long creatorId = sessionUtil.extractUserId(authHeader);
+        DeviceDto device = deviceService.registerDevice(dto, creatorId);
+
         return ApiResponse.<DeviceDto>builder()
                 .success(true)
                 .message("Device registered successfully")
                 .data(device)
                 .build();
     }
+
 
     @GetMapping("/{id}")
     public ApiResponse<DeviceDto> getDevice(@PathVariable Long id) {
@@ -44,14 +50,16 @@ public class DeviceController {
     }
 
     @GetMapping
-    public ApiResponse<List<DeviceDto>> getAllDevices() {
-        List<DeviceDto> devices = deviceService.getAllDevices();
+    public ApiResponse<List<DeviceDto>> getAllDevices(@RequestHeader("Authorization") String authHeader) {
+        Long userId = sessionUtil.extractUserId(authHeader);
+        List<DeviceDto> devices = deviceService.getAllDevicesForUser(userId);
         return ApiResponse.<List<DeviceDto>>builder()
                 .success(true)
                 .message("All devices retrieved successfully")
                 .data(devices)
                 .build();
     }
+
 
     @PutMapping("/{id}")
     public ApiResponse<DeviceDto> updateDevice(@PathVariable Long id, @RequestBody DeviceUpdateDto dto) {
